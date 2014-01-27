@@ -1,0 +1,37 @@
+#elements
+Fe 99
+Cr 1
+#isotopes
+"/home/ben/activity/v0.03/data/isotopes.txt"
+#decaymodes
+"/home/ben/activity/v0.03/data/decaymodes.txt"
+#gammaenergies
+"/home/ben/activity/v0.03/data/gammaenergies.txt"
+#xsfiles
+"/home/ben/activity/v0.03/data/xs"
+#trajfile
+"/home/ben/activity/v0.03/traj/iron36MeV.exyz"
+#polyfitorder
+3
+#integrationgranularity
+10
+#beamflux
+0.5 uA
+#beamenergy
+36 MeV
+#beamduration
+300 s
+#beamarea
+20 mm2
+#amtime
+72 hr
+#timestep
+10 s
+#projectile
+1 1
+#targetthickness
+0.5 mm
+#materialdensity
+8000 kgm3
+#vpi
+62.5
