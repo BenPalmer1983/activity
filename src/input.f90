@@ -189,7 +189,7 @@ contains
 
 !Read in data
 	isotopeCounter = 0
-	Open(UNIT=1,FILE='data/isotopes.txt') 
+	Open(UNIT=1,FILE=isotopeFile) 
     do i=1,fileRows 
 	  !Read in line
 	  Read(1,*,IOSTAT=ios) buffera, bufferb
@@ -833,7 +833,7 @@ contains
   	write(999,"(A32,d17.10)") "Beam Current/uA:                ",beamFlux
   	write(999,"(A32,d17.10)") "Beam Energy/MeV:                ",beamEnergy
   	write(999,"(A32,d17.10)") "Beam Area/mm2:                  ",beamArea
-  	write(999,"(A32,d17.10)") "Target Thickness/mm:            ",targetThickness
+  	write(999,"(A32,d17.10)") "Target Thickness/Angstrom:      ",targetThickness
   	write(999,"(A32,d17.10)") "Target Density/kgm-3:           ",materialDensity
   	write(999,"(A32,d17.10)") "Activity Measurement Time/s:    ",amTime
   	write(999,"(A32,A60)") "Input File:                     ",activityFile
