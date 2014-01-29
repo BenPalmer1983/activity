@@ -1,66 +1,92 @@
 Module maths
 
+!----------------------------------------!
+! Maths functions                        !
+! Ben Palmer, University of Birmingham   !
+!----------------------------------------!
+
+
 ! Setup Modules
   Use kinds
 
 !force declaration of all variables
   Implicit None
+!Make private
   Private  
-  !functions
-  Public :: round
-  Public :: solvePolynomial
-  !subroutines
-  Public :: polyFit
-  Public :: splineFit
+  
+! Polynomial Related Functions
+  Public :: SolvePolynomial  
+  Public :: CalcPolynomial  
+! Interpolation and Regression Functions 
+  Public :: PolyFit  
+  Public :: PolynomialInterpolation  
+  Public :: QuadraticInterpolation  
+  Public :: QuadraticInterpolationCalc  
+  Public :: CubicInterpolationCalc  
+  Public :: CalcResidualSquareSum  
+  
   
 Contains
+  
+!------------------------------------------------------------------------!
+!                                                                        !
+! MODULE FUNCTIONS                                                       !
+!                                                                        !
+!                                                                        !
+!------------------------------------------------------------------------!  
+  
+! List of Functions
+!-------------------------------------------------------------------------  
+! 
+! -
+! 
+! Polynomial Related Functions
+! - SolvePolynomial
+! - CalcPolynomial
+!  
+!  
+! Interpolation and Regression Functions 
+! - PolyFit
+! - PolynomialInterpolation 
+! - PolynomialRegression
+! - PolynomialRegressionVandermonde
+! - QuadraticInterpolation
+! - QuadraticInterpolationCalc
+! - CubicInterpolationCalc
+! - CalcResidualSquareSum
+!
+! Matrix Functions
+! - InvertSquareMatrix
+! 
+! Random Number Related Functions
+! - RandomSeed
+! - RandomDataPoints
+! 
+  
 
-!Functions
-
-
-
-  function round (input, numberDigits) RESULT (output)
-    
-	real :: input, temp, output, difference
-	integer :: numberDigits, factor
-
-	
-	factor = 10**(numberDigits)
-	temp = (nint(input*(1.0*factor)))/(1.0*factor)
-	
-	!difference = (input - temp)*10**(numberDigits)
-	
-	!if(difference.ge.0.5)then
-	!  output = (int((input+(1/10**(numberDigits)))*10**(numberDigits)))/10**(numberDigits)
-	!else
-	!  output = temp
-	!endif
-	
-	!print *,input, numberDigits, factor, temp
-	output = temp
-	
-  end function round   
   
   
+!------------------------------------------------------------------------!
+! Polynomial Related Functions
+!------------------------------------------------------------------------!     
   
-  function solvePolynomial (coefficients, lower, upper) RESULT (output)
-    	
-	Double Precision, Dimension( : ), Allocatable :: coefficients
-	Double Precision :: upper, lower, output
-	Double Precision :: x,y,dydx
-    Double Precision :: convergence, convergenceThreshold, convergenceTarget, factor, difference
-	integer i,j,k
-	
-	!Set values
+  Function SolvePolynomial (coefficients, lower, upper) RESULT (output)    	
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+	Real(kind=DoubleReal) :: upper, lower, output
+	Real(kind=DoubleReal) :: x,y,dydx
+    Real(kind=DoubleReal) :: convergence, convergenceThreshold, convergenceTarget, factor, difference
+	Integer(kind=StandardInteger) i,j,k,maxLoops	
+!Set values
 	convergenceTarget = 0
 	convergence = 1000
-	convergenceThreshold = 0.001
-	
-	!set start value for x
+	convergenceThreshold = 0.00001
+	maxLoops = 0
+!set start value for x
 	factor = 0.5
 	difference = upper - lower
 	x = lower + factor * difference	
-	do while(convergence.gt.convergenceThreshold)
+	do while(convergence.gt.convergenceThreshold.and.maxLoops.le.10000)
+	  maxLoops = maxLoops + 1
 	  difference = factor * difference
 	  y = 0
 	  do i=0,size(coefficients)-1
@@ -78,367 +104,505 @@ Contains
 	      x = x - difference
 	    endif
 	  endif
-	enddo
-	
+	enddo	
 	output = x
-
-  end function solvePolynomial 
-
-
+  End Function solvePolynomial   
   
    
-function polynomialFit(vx, vy, d) RESULT (output)
-    implicit none
-    integer, intent(in)                   :: d
-    integer, parameter                    :: dp = selected_real_kind(15, 307)
-    real(dp), dimension(d+1)              :: polyfit
-    real(dp), dimension(:), intent(in)    :: vx, vy
- 
-    real(dp), dimension(:,:), allocatable :: X
-    real(dp), dimension(:,:), allocatable :: XT
-    real(dp), dimension(:,:), allocatable :: XTX
-	
-    real(dp), dimension(:), allocatable :: output
- 
-    integer :: i, j
- 
-    integer     :: n, lda, lwork
-    integer :: info
-    integer, dimension(:), allocatable :: ipiv
-    real(dp), dimension(:), allocatable :: work
- 
-    n = d+1
-    lda = n
-    lwork = n
- 
-    allocate(ipiv(n))
-    allocate(work(lwork))
-    allocate(XT(n, size(vx)))
-    allocate(X(size(vx), n))
-    allocate(XTX(n, n))
- 
-    ! prepare the matrix
-    do i = 0, d
-       do j = 1, size(vx)
-          X(j, i+1) = vx(j)**i
-       end do
-    end do
- 
-    XT  = transpose(X)
-    XTX = matmul(XT, X)
- 
-    ! calls to LAPACK subs DGETRF and DGETRI
-    !call DGETRF(n, n, XTX, lda, ipiv, info)
-    if ( info /= 0 ) then
-       print *, "problem"
-       return
-    end if
-    !call DGETRI(n, XTX, lda, ipiv, work, lwork, info)
-    if ( info /= 0 ) then
-       print *, "problem"
-       return
-    end if
- 
-    output = matmul( matmul(XTX, XT), vy)
- 
-    deallocate(ipiv)
-    deallocate(work)
-    deallocate(X)
-    deallocate(XT)
-    deallocate(XTX)
- 
-  end function
-   
-  
-  
-  
-  
-  
-
-!Subroutines
-
-  Subroutine splineFit(inputPoints)
-  
-    !In variables
-	!double precision, intent(IN), Dimension( : , : ), Allocatable :: inputPoints
-	double precision, Dimension( : , : ), Allocatable :: inputPoints
-	
-	Allocate(inputPoints(1:17,1:2))
-	
-	inputPoints(1,1) = 1.5000000000000000e+00 
-	inputPoints(1,2) = 4.43594
-	inputPoints(2,1) = 1.7500000000000000e+00 
-	inputPoints(2,2) = 3.65848
-	inputPoints(3,1) = 2.0000000000000000e+00 
-	inputPoints(3,2) = 1.83126
-	inputPoints(4,1) = 2.2500000000000000e+00 
-	inputPoints(4,2) = 0.60767
-	inputPoints(5,1) = 2.5000000000000000e+00 
-	inputPoints(5,2) = 0.09596
-	inputPoints(6,1) = 2.7500000000000000e+00 
-	inputPoints(6,2) = -0.07819
-	inputPoints(7,1) = 3.0000000000000000e+00 
-	inputPoints(7,2) = -0.10924
-	inputPoints(8,1) = 3.2500000000000000e+00 
-	inputPoints(8,2) = -0.10353
-	inputPoints(9,1) = 3.3799999999999999e+00 
-	inputPoints(9,2) = -0.09831
-	inputPoints(10,1) = 3.5000000000000000e+00 
-	inputPoints(10,2) = -0.09320
-	inputPoints(11,1) = 3.7500000000000000e+00 
-	inputPoints(11,2) = -0.08425
-	inputPoints(12,1) = 4.0000000000000000e+00 
-	inputPoints(12,2) = -0.07807
-	inputPoints(13,1) = 4.5000000000000000e+00 
-	inputPoints(13,2) = -0.04693
-	inputPoints(14,1) = 5.0000000000000000e+00 
-	inputPoints(14,2) = -0.00878
-	inputPoints(15,1) = 5.5000000000000000e+00 
-	inputPoints(15,2) = 0.00515
-	inputPoints(16,1) = 6.0000000000000000e+00 
-	inputPoints(16,2) = 0.00095
-	inputPoints(17,1) = 6.5000000000000000e+00 
-	inputPoints(17,2) = 0.000000
-	
-  
-!End of spline subroutine
-  End Subroutine splineFit
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  Subroutine polyFit(inputPoints,order,polyCoefficients)
- 
-    
- 
+  Function CalcPolynomial (polyCoefficients, x, derivative) RESULT (y)
 !force declaration of all variables
 	Implicit None
-	
-    Integer, Parameter :: sp = Selected_Real_Kind(6,37)    ! single real
-    Integer, Parameter :: dp = Selected_Real_Kind(15,307)  ! double real
-    !Integer, Parameter :: qp = Selected_Real_Kind(33,4931) ! quadrupole real
-	Integer, Parameter :: qp = Selected_Real_Kind(15,307) ! temporary
-    Integer, Parameter :: wp = dp                          ! working real
-    Integer, Parameter :: ip = Selected_Int_Kind(12)       ! long integer
-	
 !declare variables
-    !in-out vars
-	real, Dimension( : , : ), Allocatable :: inputPoints
-	Real( Kind = qp ), Dimension( : ), Allocatable :: polyCoefficients
-	integer :: order
-	
-	!internal
-	Real( Kind = qp) :: matrixentry, matrixtempa, matrixtempb, idfactor, tempreal, trifactor
-    Real( Kind = qp ), dimension(10,20) :: xmatrix
-    Real( Kind = qp ), dimension(10,10) :: xinvmatrix
-	!Real( Kind = qp ), dimension( : ), Allocatable :: xmatrix
-    !Real( Kind = qp ), dimension( : ), Allocatable :: xinvmatrix
-    Real( Kind = qp ), dimension(10,1) :: ymatrix, coefficients
-    Real( Kind = qp ), dimension(10,1) :: rowvalue
-    Real( Kind = qp ) :: randnum, lms, x, y, ycalc
-    Integer :: filerow, maxrows, totalrows, ios, row, column, exponentVal, matrixsize
-    Integer :: rowi, rowj, columnk, i, j
-    Integer :: matrixarows, matrixacolumns, matrixbrows, matrixbcolumns, strstart, strend
-    Logical :: sorting
-    CHARACTER(len=20) :: temp
-    CHARACTER(len=255) :: output
-
-    !Start matrix operations
-    matrixsize = order + 1
-	
-	!Allocate arrays
-	!Allocate(xmatrix(1:matrixsize,1:2*matrixsize))
-	!Allocate(xinvmatrix(1:matrixsize,1:matrixsize))
-	
-	!do rowi=1,size(inputPoints)/2
-    !  print *,inputPoints(rowi,1),inputPoints(rowi,2)
-    !end do	
-
-    !make xmatrix
-	!print *,"X Matrix"
-    do row=1,matrixsize
-      do column=1,matrixsize
-        exponentVal = (row - 1) + (column - 1)
-        matrixentry = 1.0D0
-        do rowi=1,size(inputPoints)/2
-          matrixentry = 1.0D0 * (matrixentry + inputPoints(rowi,1)**(1.0D0*exponentVal))
-        end do
-        xmatrix(row,column) = 1.0D0 * matrixentry
-      end do
-    end do
-	
-	!ymatrix
-	!print *,"Y Matrix"
-    do row=1,matrixsize
-      matrixentry = 1.0D0
-      do rowi=1,size(inputPoints)/2
-        matrixentry = 1.0D0 * &
-		(matrixentry + (1.0D0 * inputPoints(rowi,1)**(1.0D0 * (row-1)))*&
-		(1.0D0 * inputPoints(rowi,2)))
-      end do
-	  !print *,row,matrixentry
-      ymatrix(row,1) = matrixentry
-    end do
+	Integer(kind=StandardInteger) :: i,j,k, derivative
+	Integer(kind=StandardInteger) :: coeffCount 
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: polyCoefficients
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: polyTemp
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: polyWorking
+    Real(kind=DoubleReal) :: x, y
+!count coefficients
+	coeffCount = size(polyCoefficients)	
+!force no or positive derivative
+	if(derivative.lt.0)then
+	  derivative = 0
+	endif
+!run calc
+	if(derivative.gt.coeffCount)then
+!if order of derivative higher than coeffs/order polynomial, then answer is zero	
+	  y = 0.0D0
+	  Allocate(polyWorking(0:0))
+!transfer to polyWorking
+	  polyWorking(0) = 0.0D0
+	  coeffCount = 1
+	else
+	  if(derivative.eq.0)then
+!if no derivative, use input coeffs	
+        Allocate(polyWorking(0:(coeffCount-1)))
+!transfer to polyWorking
+	    do i=0,(coeffCount-1)
+		  polyWorking(i) = polyCoefficients(i)
+		enddo
+	  else
+!loop through each derivative
+	    do i=1,derivative
+		  coeffCount = coeffCount - 1
+		  do j=0,(coeffCount-1)
+		    polyCoefficients(j) = (j+1)*polyCoefficients(j+1)
+		  enddo
+		enddo	
+        Allocate(polyWorking(0:(coeffCount-1)))
+!transfer to polyWorking
+	    do i=0,(coeffCount-1)
+		  polyWorking(i) = polyCoefficients(i)
+		enddo
+	  endif
+	  y = 0.0D0
+	  do i=0,(coeffCount-1)
+	    y = y+1.0D0*polyWorking(i)*x**(1.0D0*i)
+	  enddo 
+	endif 
+!returns y
+  End Function CalcPolynomial
   
-    !optimise matrix order
-	Do i=1,size(rowvalue)
-	  rowvalue(i,1) = 1.0D0
-	Enddo
-    DO row=1,matrixsize
-      DO column=1,matrixsize
-        IF(xmatrix(row,column).EQ.0)THEN
-          rowvalue(row,1) = 1.0D0 * (rowvalue(row,1) &
-		  + 1.0D0*(10**(1.0D0*(matrixsize-row))))
-		ELSE
-		  rowvalue(row,1) = 1.0D0
-        END IF
-      END DO
-    END DO
-    sorting = .true.
-    DO WHILE(sorting)
-      sorting = .false.
-      DO row=1,(matrixsize-1)
-        IF(rowvalue(row,1).GT.rowvalue(row+1,1))THEN
-          sorting = .true.
-          matrixtempa = 1.0D0 * rowvalue(row,1)
-          matrixtempb = 1.0D0 * rowvalue(row+1,1)
-          rowvalue(row,1) = 1.0D0 * matrixtempb
-          rowvalue(row+1,1) = 1.0D0 * matrixtempa
-          DO column=1,matrixsize
-            matrixtempa = 1.0D0 * xmatrix(row,column)
-            matrixtempb = 1.0D0 * xmatrix(row+1,column)
-            xmatrix(row,column) = 1.0D0 * matrixtempb
-            xmatrix(row+1,column) = 1.0D0 * matrixtempa
-          END DO
-        END IF
-      END DO
-    END DO
-		
-	!append identity to xmatrix
-    do row=1,matrixsize
-      do column=matrixsize+1,2 * matrixsize
-        IF((column-matrixsize).EQ.row)THEN
-          xmatrix(row,column) = 1.0D0
-        ELSE
-          xmatrix(row,column) = 0.0D0
-        END IF
-      END DO
-    END DO	
-	
-	!print *,"X Matrix"
-    !do row=1,matrixsize
-    !  do column=1,2 *matrixsize
-	!	print *,row,column,xmatrix(row,column)
-    !  end do
-    !end do
   
-    !make lower triangle of 0s
-    DO rowi=1,matrixsize-1
-      DO rowj=rowi+1,matrixsize
-	    trifactor = 1.0D0 * (xmatrix(rowj,rowi)/xmatrix(rowi,rowi))
-        DO columnk=1,2*matrixsize
-          IF(columnk.LE.rowi)THEN
-            xmatrix(rowj,columnk) = 1.0D0
-          ELSE
-			xmatrix(rowj,columnk) = 1.0D0 * xmatrix(rowj,columnk) - &
-			1.0D0 * (trifactor) * xmatrix(rowi,columnk)
-          END IF
-        END DO
-      END DO
-    END DO
-	
-	
-	!print *,"X Matrix"
-    !do row=1,matrixsize
-    !  do column=1,2 *matrixsize
-	!	print *,row,column,xmatrix(row,column)
-    !  end do
-    !end do
-	
-	!make upper triangle of zeros
-    DO rowi=matrixsize,2,-1
-      DO rowj=rowi-1,1,-1
-	    trifactor = 1.0D0 * (xmatrix(rowj,rowi)/xmatrix(rowi,rowi))
-        DO columnk=1,2*matrixsize
-          xmatrix(rowj,columnk) = 1.0D0 * xmatrix(rowj,columnk) - &
-		  1.0D0 * (trifactor) * xmatrix(rowi,columnk)
-        END DO
-      END DO
-    END DO
-	
-	!print *,"X Matrix"
-    !do row=1,matrixsize
-    !  do column=1,2 *matrixsize
-	!	print *,row,column,xmatrix(row,column)
-    !  end do
-    !end do
   
-    !recreate identity on left
-    DO row=1,matrixsize
-      IF(xmatrix(row,row).NE.1)THEN
-        DO column=1,(2*matrixsize)
-          IF(row.EQ.column)THEN
-            idfactor = xmatrix(row,column)
-            xmatrix(row,column) = 1.0D0
-          ELSE
-            IF(xmatrix(row,column).EQ.0)THEN
-              xmatrix(row,column) = 0.0D0
-            ELSE
-              xmatrix(row,column) = (1.0D0 * xmatrix(row,column)) / &
-			  (1.0D0 * idfactor)
-            END IF
-          END IF
-        END DO
-      END IF
-    END DO
-
-    !transfer inverted matrix
-    DO row=1,matrixsize
-      DO column=1,matrixsize
-        xinvmatrix(row,column) = xmatrix(row,column+matrixsize)
-      END DO
-    END DO
-	
-	!mult ymatrix by xinvmatrix
-    matrixarows = matrixsize
-    matrixacolumns = matrixsize
-    matrixbrows = matrixsize
-    matrixbcolumns = 1
-
-    DO column=1,matrixbcolumns
-      DO row=1,matrixarows
-        matrixentry = 0.0D0
-        DO columnk=1,matrixacolumns
-          matrixentry = 1.0D0 * matrixentry + 1.0D0 * xinvmatrix(row,columnk) * ymatrix(columnk,column)
-        END DO
-        coefficients(row,column) = matrixentry
-      END DO
-    END DO
-
-	If(Allocated(polyCoefficients).eqv..true.)Then
-	  Deallocate(polyCoefficients)
-	End If
-	Allocate(polyCoefficients(0:order))
-	do row=1,matrixsize
-	  polyCoefficients(row-1) = coefficients(row,1)
-	  !print *,(row-1),coefficients(row,1)
+  
+  
+  
+  
+  
+  
+  
+!------------------------------------------------------------------------!
+! Interpolation and Regression Functions 
+!------------------------------------------------------------------------! 
+  
+  Function PolyFit(inputPoints, order) RESULT (coefficients) 
+!force declaration of all variables
+	Implicit None
+!declare variables
+	Integer(kind=StandardInteger) :: i,j,order
+	Real(kind=DoubleReal) :: rssThreshold, rssA, rssB, rssC, rssBest
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: inputPoints
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficientsA
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficientsB
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficientsTemp
+    Integer(kind=StandardInteger), Dimension(1:1000) :: randomSeed
+!set random seed
+    randomSeed = SetRandomSeedArray()
+!allocate arrays
+    Allocate(coefficients(0:order))
+    Allocate(coefficientsA(0:order))
+    Allocate(coefficientsB(0:order))
+    Allocate(coefficientsTemp(0:order))
+!Use vandermonde method and calculate rss
+	coefficientsA = PolynomialRegressionVandermonde(inputPoints, order)
+	rssA = CalcResidualSquareSum(inputPoints,coefficientsA)
+!calculate and compare rss for each
+    rssThreshold = rssA
+	coefficientsB = PolynomialRegression(inputPoints, order, rssThreshold)
+	rssB = CalcResidualSquareSum(inputPoints,coefficientsB)
+	if(rssA.lt.rssB)then
+!use vandermonde result
+      do i=0,order
+	    coefficients(i) = coefficientsA(i) 
+	  enddo
+    else
+!improve regression attempt if better than vandermonde method	  
+	  rssBest = rssB
+	  print *,rssB
+	  do i=1,4
+	    rssThreshold = rssThreshold*0.2**i
+		coefficientsTemp = PolynomialRegression(inputPoints, order, rssThreshold)
+		rssB = CalcResidualSquareSum(inputPoints,coefficientsTemp)
+		if(rssB.lt.rssBest)then
+		  do j=0,order
+		    coefficientsB(j) = coefficientsTemp(j)
+			rssBest = rssB
+		  enddo	
+		else
+          exit
+        endif		  
+	  enddo
+	  do i=0,order
+	    coefficients(i) = coefficientsB(i) 
+	  enddo
+	endif
+  End Function PolyFit      
+  
+  
+  
+  Function PolynomialInterpolation(inputPoints) RESULT (coefficients)   
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i, col, row
+	Integer(kind=StandardInteger) :: order, coefficientCount
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: inputPoints
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficientsTemp
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: xMatrix
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: xMatrixInverse
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: yMatrix
+!set variables
+    coefficientCount = size(inputPoints,1)
+	order = size(inputPoints,1)-1
+!Allocate arrays
+    Allocate(xMatrix(1:coefficientCount,1:coefficientCount))
+    Allocate(xMatrixInverse(1:coefficientCount,1:coefficientCount))
+    Allocate(yMatrix(1:coefficientCount))
+    Allocate(coefficientsTemp(1:coefficientCount))
+    Allocate(coefficients(0:order))
+!Fill arrays
+	do row=1,coefficientCount
+	  do col=1,coefficientCount
+        xMatrix(row,col) = 1.0D0*inputPoints(row,1)**(1.0D0*(col-1))
+      enddo
+	  yMatrix(row) = 1.0D0*inputPoints(row,2)
+    enddo
+!invert xMatrix
+    xMatrixInverse = InvertSquareMatrix(xMatrix)
+!find coefficients
+    coefficientsTemp = matMul(xMatrixInverse,yMatrix)
+!move coefficients
+    do i=1,coefficientCount
+      coefficients(i-1) = coefficientsTemp(i)
 	enddo
+  End Function PolynomialInterpolation  
+    
 	
+	
+  Function PolynomialRegression(inputPoints, order, rssThresholdIn) RESULT &
+  (coefficients)   
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Real(kind=DoubleReal),optional :: rssThresholdIn
+    Integer(kind=StandardInteger) :: i,j,k,col,row
+	Integer(kind=StandardInteger) :: order, coefficientCount, polyCount, loops
+	Real(kind=DoubleReal) :: randNumber, rss, bestRss, decayFactor, rssThreshold
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: inputPoints
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: samplePoints
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: tempCoefficients
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: testCoefficients
+!set variables	
+	coefficientCount = order + 1
+	if(present(rssThresholdIn))then
+	  rssThreshold = rssThresholdIn
+	else
+	  rssThreshold = 1000
+	endif
+	if(rssThreshold.lt.1)then
+	  !rssThreshold = 1
+	endif
+!allocate arrays
+    Allocate(coefficients(0:order))
+    Allocate(tempCoefficients(0:order))
+    Allocate(testCoefficients(0:order))
+    Allocate(samplePoints(1:coefficientCount,1:2))
+!fill coefficients array with zeros
+    do j=0,order
+	  testCoefficients(j) = 0.0D0
+	  coefficients(j) = 0.0D0
+	  tempCoefficients(j) = 0.0D0
+	enddo
+!find best fit by interpolation between random data points
+    polyCount = 0
+	if(order.lt.3)then
+	  loops = 25
+	else  
+	  loops = 50*((order-2)**2)
+	endif
+	do i=1,(48+order**3)
+	  samplePoints = RandomDataPoints(inputPoints,coefficientCount,1)
+	  tempCoefficients = PolynomialInterpolation(samplePoints)
+	  rss = CalcResidualSquareSum(inputPoints,tempCoefficients)
+	  if(rss.lt.rssThreshold)then 
+	    if(polyCount.eq.0)then
+	      do j=0,order
+		    coefficients(j) = tempCoefficients(j)
+		  enddo
+		  bestRss = rss		
+		  polyCount = polyCount + 1  
+		else 
+	      do j=0,order		
+		    testCoefficients(j) = &
+			   (polyCount * coefficients(j) + tempCoefficients(j)) /&
+			   (polyCount + 1)
+		  enddo
+		  rss = CalcResidualSquareSum(inputPoints,testCoefficients)
+		  if(rss.lt.bestRss)then
+		    bestRss = rss	
+		    polyCount = polyCount + 1
+	        do j=0,order
+		      coefficients(j) = 1.0D0*testCoefficients(j)
+		    enddo
+		  endif		  		  
+		endif	  
+	  endif	
+	enddo
+  End Function PolynomialRegression  
   
-  !End of polyFit subroutine
-  End Subroutine polyFit
 
   
+  Function PolynomialRegressionVandermonde(inputPoints, order)&
+  RESULT (coefficients) 
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i,j,k,col,row
+	Integer(kind=StandardInteger) :: order, dataPoints, matrixSize, exponentValue
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: inputPoints
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: xMatrix
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: yMatrix
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+!set variables
+    dataPoints = size(inputPoints,1)
+	matrixSize = order+1
+!allocate arrays
+    Allocate(xMatrix(1:matrixSize,1:matrixSize))
+    Allocate(yMatrix(1:matrixSize))
+    Allocate(coefficients(0:order))
+!Build Least Squares Fitting Vandermonde matrix
+    do row=1,matrixSize
+	  do col=1,matrixSize
+	    exponentValue = 1.0D0*row+1.0D0*col-2.0D0
+		xMatrix(row,col) = 0.0D0
+		do k=1,dataPoints
+	      xMatrix(row,col) = 1.0D0*xMatrix(row,col)+1.0D0*inputPoints(k,1)&
+		  **exponentValue
+		enddo
+	  enddo
+	enddo
+	do row=1,matrixSize
+	  exponentValue = 1.0D0*row-1.0D0
+	  yMatrix(row) = 0.0D0
+	  do k=1,dataPoints
+	    yMatrix(row) = 1.0D0*yMatrix(row)+1.0D0*inputPoints(k,2)*&
+		inputPoints(k,1)**exponentValue
+	  enddo
+	enddo
+!invert xMatrix
+	xMatrix = InvertSquareMatrix(xMatrix)
+!multiply inverse by y to get coefficients
+    yMatrix = matMul(xMatrix,yMatrix)
+!save coefficients
+    do i=0,order
+	  coefficients(i) = yMatrix(i+1)
+	enddo  
+  End Function PolynomialRegressionVandermonde  
+  
+  
+  
+  Function QuadraticInterpolation(xA,yA,xB,yB,xC,yC) RESULT (coefficients)
+!force declaration of all variables
+	Implicit None
+!declare variables
+	Integer(kind=StandardInteger) :: i
+    Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+	Real(kind=DoubleReal) :: xA,yA,xB,yB,xC,yC
+	Real(kind=DoubleReal) :: aA,aB,aC
+	Allocate(coefficients(0:2))  	
+	aA = 1.0D0*(yA/((xA-xB)*(xA-xC)))
+    aB = 1.0D0*(yB/((xB-xA)*(xB-xC)))
+	aC = 1.0D0*(yC/((xC-xA)*(xC-xB)))
+	coefficients(2) = 1.0D0*(aA+aB+aC)
+	coefficients(1) = -1.0D0*(aA*(xB+xC)+aB*(xA+xC)+aC*(xA+xB))
+	coefficients(0) = 1.0D0*(aA*xB*xC+aB*xA*xC+aC*xA*xB)
+  End Function QuadraticInterpolation
+  !------------------------------
+  Function QuadraticInterpolationCalc(xA,yA,xB,yB,xC,yC,x) RESULT (y)
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i
+    Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+	Real(kind=DoubleReal) :: xA,yA,xB,yB,xC,yC,x,y
+	Allocate(coefficients(0:2)) 
+	coefficients = QuadraticInterpolation(xA,yA,xB,yB,xC,yC)
+	y = 1.0D0*coefficients(0)+1.0D0*coefficients(1)*x+1.0D0*coefficients(2)*x**2
+  End Function QuadraticInterpolationCalc
+  
+  
+  
+  Function CubicInterpolationCalc(xA,yA,xB,yB,xC,yC,xD,yD,x) RESULT (y)
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i
+    Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+	Real(kind=DoubleReal) :: xA,yA,xB,yB,xC,yC,xD,yD,x,y
+	Real(kind=DoubleReal) :: aA,aB,aC,aD
+	
+	aA = 1.0D0*yA*(((x-xB)*(x-xC)*(x-xD))/((xA-xB)*(xA-xC)*(xA-xD)))
+	aB = 1.0D0*yB*(((x-xA)*(x-xC)*(x-xD))/((xB-xA)*(xB-xC)*(xB-xD)))
+	aC = 1.0D0*yC*(((x-xA)*(x-xB)*(x-xD))/((xC-xA)*(xC-xB)*(xC-xD)))
+	aD = 1.0D0*yD*(((x-xA)*(x-xB)*(x-xC))/((xD-xA)*(xD-xB)*(xD-xC)))
+		
+	y = 1.0D0*(aA+aB+aC+aD)
+  End Function CubicInterpolationCalc
+  
+  
+  
+  Function CalcResidualSquareSum(inputPoints,polyCoefficients) RESULT (rss) 
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i,j,k
+	Integer(kind=StandardInteger) :: order
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: inputPoints
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: polyCoefficients
+	Real(kind=DoubleReal) :: rss, x, y	
+	order = size(polyCoefficients)-1	
+	rss = 0.0D0
+	do i=1,size(inputPoints,1)
+	  x = 1.0D0*inputPoints(i,1)
+	  y = calcPolynomial(polyCoefficients,x,0)
+	  rss = rss + (y-inputPoints(i,2))**2  
+	enddo  
+  End Function CalcResidualSquareSum   
+  
+  
+  
+  
+  
+  
+!------------------------------------------------------------------------!
+! Matrix Functions
+!------------------------------------------------------------------------! 
+  
+  Function InvertSquareMatrix(xMatrix) RESULT (xMatrixInverse)  
+!force declaration of all variables
+	Implicit None
+!declare variables
+	Integer(kind=StandardInteger) :: i,j,k,row,col,rowb
+	Integer(kind=StandardInteger) :: matrixSize,optimiseSum,optimiseExponent
+	Real(kind=DoubleReal) :: xA, xB
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: xMatrix
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: xMatrixWorking
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: xMatrixInverse
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: xMatrixRow
+	Integer(kind=StandardInteger), Dimension( : ), Allocatable :: optimiseArray	
+	Logical :: optimising	
+!if a square matrix
+	if(size(xMatrix,1).eq.size(xMatrix,2))then
+	  matrixSize = size(xMatrix,1)
+!Allocate arrays
+	  Allocate(xMatrixInverse(1:matrixSize,1:matrixSize))
+	  Allocate(xMatrixWorking(1:matrixSize,1:2*matrixSize))	 
+	  Allocate(xMatrixRow(1:2*matrixSize)) 
+	  Allocate(optimiseArray(1:matrixSize)) 
+!Fill working array
+      do row=1,matrixSize
+	    do col=1,(2*matrixSize)
+	      xMatrixWorking(row,col) = 0.0D0
+	    enddo
+	  enddo
+	  do row=1,matrixSize
+	    do col=1,matrixSize
+	      xMatrixWorking(row,col) = 1.0D0*xMatrix(row,col)
+	    enddo
+	  enddo
+!Fill inverse array
+	  do row=1,matrixSize
+	    do col=1,matrixSize
+	      xMatrixInverse(row,col) = 0.0D0
+	    enddo
+	  enddo
+!optimise matrix order
+      do row=1,matrixSize		!row at a time
+	    optimiseSum = 0
+	    do col=1,matrixSize 
+	      if(xMatrixWorking(row,col).ne.0.0D0)then
+	        optimiseExponent = matrixSize - col
+		    optimiseSum = optimiseSum + 2**optimiseExponent
+		  endif
+	    enddo
+        optimiseArray(row) = optimiseSum 
+	  enddo	
+	  optimising = .true.
+      do while(optimising)
+        optimising = .false.
+        do row=1,(matrixSize-1)        !loop through rows
+          if(optimiseArray(row).lt.optimiseArray(row+1))then
+		    optimising = .true.
+!reorder optimising array
+            i = optimiseArray(row)
+            j = optimiseArray(row+1)
+		    optimiseArray(row) = j
+		    optimiseArray(row+1) = i
+!reorder xMatrixWorking
+            do col=1,(2*matrixSize)   
+		      xA = 1.0D0*xMatrixWorking(row,col)
+              xB = 1.0D0*xMatrixWorking(row+1,col)
+		      xMatrixWorking(row,col) = 1.0D0*xB
+		      xMatrixWorking(row+1,col) = 1.0D0*xA
+		    enddo
+		  endif
+	    enddo
+      enddo	
+!Make identity in rhs matrix
+      do row=1,matrixSize
+	    do col=1,matrixSize
+		  if(row.eq.col)then
+	        xMatrixWorking(row,col+matrixSize) = 1.0D0
+		  endif
+	    enddo
+	  enddo
+!make lower triangle of zeros	  
+	  do row=1,matrixSize-1
+	    do rowb=row+1,matrixSize	  
+		  do col=1,(2*matrixSize) !loop over all columns
+		    xMatrixRow(col) = 1.0D0*&
+		    ((1.0D0*xMatrixWorking(row,row))/(1.0D0*xMatrixWorking(rowb,row)))*&
+			xMatrixWorking(rowb,col)-1.0D0*xMatrixWorking(row,col)
+		  enddo
+!replace row values
+		  do col=1,(2*matrixSize) !loop over all columns
+		    xMatrixWorking(rowb,col) = 1.0D0 * xMatrixRow(col)
+		  enddo
+	    enddo
+!force zeros in the lower triangle
+        do rowb=row+1,matrixSize
+	      xMatrixWorking(rowb,row) = 0.0D0
+	    enddo
+	  enddo
+!re-force zeros in the lower triangle
+      do row=1,matrixSize
+	    do col=1,matrixSize
+		  if(row.gt.col)then
+		    xMatrixWorking(row,col) = 0.0D0
+		  endif
+		enddo
+	  enddo
+!make upper triangle of zeros	
+	  do row=matrixSize,2,-1
+	    do rowb=row-1,1,-1	  
+		  do col=1,(2*matrixSize) !loop over all columns
+		    xMatrixRow(col) = 1.0D0*&
+		    ((1.0D0*xMatrixWorking(row,row))/(1.0D0*xMatrixWorking(rowb,row)))*&
+			xMatrixWorking(rowb,col)-1.0D0*xMatrixWorking(row,col)
+		  enddo
+!replace row values
+		  do col=1,(2*matrixSize) !loop over all columns
+		    xMatrixWorking(rowb,col) = 1.0D0 * xMatrixRow(col)
+		  enddo
+	    enddo
+!force zeros in the upper triangle
+        do rowb=row-1,1,-1
+	      xMatrixWorking(rowb,row) = 0.0D0
+	    enddo
+	  enddo
+!Divide rhs by diagonal on lhs and store in inverse
+	  do row=1,matrixSize
+	    do col=1,matrixSize
+		  xMatrixInverse(row,col) = 1.0D0*&
+		  xMatrixWorking(row,col+matrixSize)/xMatrixWorking(row,row)
+		enddo
+	  enddo
+	endif
+  End Function InvertSquareMatrix  
   
   
   
@@ -451,7 +615,112 @@ function polynomialFit(vx, vy, d) RESULT (output)
   
   
   
+!------------------------------------------------------------------------!
+! Random Number Related Functions
+!------------------------------------------------------------------------!    
+  
+  Function SetRandomSeedArray() RESULT (randomSeed)  
+    Integer(kind=StandardInteger) :: i,j,k
+	Integer(kind=StandardInteger) :: clockReturn, gap, seedTemp, multiple
+    Integer(kind=StandardInteger), Dimension(1:1000) :: randomSeed
+	Integer(kind=StandardInteger), Dimension(0:9) :: randomIntegers
+  !random number seed from cpu
+    randomIntegers(0) = 25441
+    randomIntegers(1) = 37261
+    randomIntegers(2) = 1622261
+    randomIntegers(3) = 162982	
+    randomIntegers(4) = 72635	
+    randomIntegers(5) = 9927151
+    randomIntegers(6) = 91
+    randomIntegers(7) = 6452
+    randomIntegers(8) = 448327
+    randomIntegers(9) = 9253411
+	j = 0
+	Call SYSTEM_CLOCK(clockReturn)
+	gap = clockReturn - 10*floor(1.0D0*clockReturn/10)
+    do i=1,1000	  
+	  k = j + gap
+	  if(k.gt.9)then
+	    k = k - 10
+	  endif
+	  seedTemp = i * (randomIntegers(j)-randomIntegers(k))
+	  seedTemp = abs(seedTemp)
+	  multiple = floor(1.0D0 * seedTemp / 1.0D0 * clockReturn)
+	  seedTemp = seedTemp - multiple * clockReturn
+	  randomSeed(i) = abs(clockReturn - seedTemp)
+	  if(j.eq.9)then
+	    j = 0
+	  endif
+	  j = j + 1
+	enddo	
+	Call RANDOM_SEED(put=randomSeed)
+  End Function SetRandomSeedArray
   
   
   
-End Module maths
+  Function RandomDataPoints(inputPoints,noPoints, tether) RESULT (outputPoints)
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i,j,noPoints,point,noInputPoints,tether
+	Real(kind=DoubleReal) :: randNumber
+	Integer(kind=StandardInteger), Dimension( : ), Allocatable :: selectedPoints
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: inputPoints
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: outputPoints
+	Logical :: pointOk
+!set variables	
+	noInputPoints = size(inputPoints,1) 
+!Allocate arrays
+    Allocate(selectedPoints(1:noPoints))
+    Allocate(outputPoints(1:noPoints,1:size(inputPoints,2)))
+!fill selected points array with 0s
+	do i=1,noPoints
+	  selectedPoints(i) = 0  
+	enddo
+	if(tether.eq.1)then
+	  !tether start and end points
+	  selectedPoints(1) = 1
+	  selectedPoints(noPoints) = noInputPoints
+	endif
+	if(tether.eq.2)then
+	  !tether start and end points
+	  Call RANDOM_NUMBER(randNumber)
+	  if(randNumber.lt.0.5)then
+	    selectedPoints(1) = 1
+	  else
+	    selectedPoints(1) = 2
+	  endif
+	  Call RANDOM_NUMBER(randNumber)
+	  if(randNumber.lt.0.5)then
+	    selectedPoints(noPoints) = noInputPoints
+	  else
+	    selectedPoints(noPoints) = noInputPoints-1
+	  endif
+	endif
+!pick random points
+    i = 1
+	do while(i.le.noPoints)
+	  Call RANDOM_NUMBER(randNumber)  
+	  point = ceiling(randNumber*noInputPoints)
+	  pointOk = .true.
+	  do j=1,noPoints
+	    if(selectedPoints(j).eq.point)then
+		  pointOk = .false.
+		endif		
+	  enddo
+	  if(pointOk)then
+		selectedPoints(i) = point
+	    i = i + 1
+	  endif
+	enddo
+!Transfer data to output array
+    do i=1,noPoints
+	  do j=1,size(inputPoints,2)
+        outputPoints(i,j) = inputPoints(selectedPoints(i),j)
+	  enddo
+	enddo
+  End Function RandomDataPoints  
+  
+  
+  
+End Module maths  

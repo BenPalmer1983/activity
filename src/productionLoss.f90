@@ -122,7 +122,7 @@ contains
 	enddo
 	
 	!get max depth
-	maxDepth = solvePolynomial(fitCoefficients, Dble(lowerX), Dble(upperX))
+	maxDepth = SolvePolynomial(fitCoefficients, Dble(lowerX), Dble(upperX))
 	
 	!affected depth
 	if(maxDepth.gt.targetThickness)then

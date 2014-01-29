@@ -1,7 +1,0 @@
-gfortran -o activity.x kinds.f90 constants.f90 stringfunctions.f90 lsq.f90 maths.f90 input.f90 prep.f90 productionLoss.f90 activity.f90
-
-
-
-gfortran -o activity.x kinds.f90 stringfunctions.f90 lsq.f90 maths.f90 input.f90 prep.f90 productionLoss.f90 activity.f90
-
-

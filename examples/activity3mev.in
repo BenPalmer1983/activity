@@ -8,15 +8,15 @@ Nb 0.21
 Mn 0.65
 C 0.014
 #isotopes
-"/home/ben/activity/v0.04/data/isotopes.txt"
+"/home/ben/code/fortran/activity/data/isotopes.txt"
 #decaymodes
-"/home/ben/activity/v0.04/data/decaymodes.txt"
+"/home/ben/code/fortran/activity/data/decaymodes.txt"
 #gammaenergies
-"/home/ben/activity/v0.04/data/gammaenergies.txt"
+"/home/ben/code/fortran/activity/data/gammaenergies.txt"
 #xsfiles
-"/home/ben/activity/v0.04/data/xs"
+"/home/ben/code/fortran/activity/data/xs"
 #trajfile
-"/home/ben/activity/v0.04/traj/FeCrNiTiSiNbMnC3MeV.exyz"
+"/home/ben/code/fortran/activity/examples/FeCrNiTiSiNbMnC3MeV.exyz"
 #polyfitorder
 3
 #integrationgranularity

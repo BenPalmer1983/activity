@@ -68,6 +68,7 @@ contains
 	Integer :: i, j, k, ionCount, dataPointCount, totalIons
 	Integer, Dimension( : ), Allocatable :: ionDataCount
 	Real, Dimension( : , : ), Allocatable :: specificIonExyz	
+	double precision, Dimension( : , : ), Allocatable :: specificIonExyzD
 	double precision, Dimension( : ), Allocatable :: polyCoefficients
 	integer :: order
     
@@ -87,8 +88,9 @@ contains
 	enddo
 	totalIons = ionCount
 	
-	!Allocate array
+	!Allocate arrays
 	Allocate(ionDataCount(1:totalIons))
+	
 	
 	!save ion counts
 	ionCount = 0
@@ -115,12 +117,12 @@ contains
 	
 	!allocate the array
 	Allocate(fitCoefficients(0:order))
+	Allocate(polyCoefficients(0:order))
 	
 	!Fill fitCoefficients with zeros
 	do j=0,order
 	  fitCoefficients(j) = 0
 	enddo
-	
 	ionCount = 0
 	do i=1,size(exyzKey)
 	  if(i.eq.1)then
@@ -129,6 +131,7 @@ contains
 		!deallocate and allocate array
 		!Deallocate(specificIonExyz)
 		Allocate(specificIonExyz(1:ionDataCount(ionCount),1:2))
+		Allocate(specificIonExyzD(1:ionDataCount(ionCount),1:2))		
 	  else
 	    if(exyzKey(i-1).ne.exyzKey(i))then
 		  !Process data before next ion
@@ -138,7 +141,8 @@ contains
 		  !else
 		  !  Call polyFit(specificIonExyz,order,polyCoefficients)
 		  !endif
-		  Call polyFit(specificIonExyz,order,polyCoefficients)
+		  !Call polyFit(specificIonExyz,order,polyCoefficients)
+		  polyCoefficients = PolyFit(specificIonExyzD,order)
 		  do j=0,order
 		    fitCoefficients(j) = fitCoefficients(j) + (polyCoefficients(j) / (1.0 * totalIons))
 		  enddo
@@ -157,8 +161,10 @@ contains
 		  !deallocate and allocate array
 		  Deallocate(specificIonExyz)
 		  Allocate(specificIonExyz(1:ionDataCount(ionCount),1:2))
+		  Deallocate(specificIonExyzD)
+		  Allocate(specificIonExyzD(1:ionDataCount(ionCount),1:2))
 		endif
-	  endif
+	  endif	  
 	  !
 	  !increment counter
 	  dataPointCount = dataPointCount + 1	
@@ -166,10 +172,13 @@ contains
 	  !Store data
 	  specificIonExyz(dataPointCount,1) = exyzData(i,1)
 	  specificIonExyz(dataPointCount,2) = exyzData(i,2)
+	  specificIonExyzD(dataPointCount,1) = 1.0D0*exyzData(i,1)
+	  specificIonExyzD(dataPointCount,2) = 1.0D0*exyzData(i,2)
 	  if(i.eq.size(exyzKey)) then
 	    !Process data for last ion
 		!Process specificIonExyz array
-		Call polyFit(specificIonExyz,order,polyCoefficients)
+		!Call polyFit(specificIonExyz,order,polyCoefficients)
+		polyCoefficients = PolyFit(specificIonExyzD,order)
 		do j=0,order
 		  fitCoefficients(j) = fitCoefficients(j) + (polyCoefficients(j) / (1.0 * totalIons))
 		enddo  
