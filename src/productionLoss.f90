@@ -553,16 +553,24 @@ contains
 !force declaration of all variables
 	Implicit None	
 !declare variables
- 	Integer(kind=StandardInteger) :: i,j,k
+ 	Integer(kind=StandardInteger) :: i,j,k,tempInt,saveIsotope
 	Real(kind=DoubleReal) :: parentProductionRate,tStart,tEnd,tBeamEnd
 	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: decayDataArray
 	Real(kind=DoubleReal) :: atoms
 	Real(kind=DoubleReal) :: rrTallyChange
 	Real(kind=DoubleReal) :: w
 	Real(kind=SingleReal) :: simTime, simTimeLast, workingTimeStep, simTimeNext
+	Real(kind=SingleReal) :: simTimeWorking
+	Real(kind=SingleReal) :: startTime, endTime, changeTime
+	Real(kind=SingleReal) :: startTimeDisplay, endTimeDisplay
+	Real(kind=DoubleReal) :: gammaActivity
  	Integer(kind=StandardInteger) :: key,keyT,keyP
  	Integer(kind=StandardInteger) :: zT,aT,mT,zP,aP,mP
+ 	Integer(kind=StandardInteger) :: z,a,m
+	Integer(kind=StandardInteger) :: isotopeActivityHeight, isotopeActivityWidth
 	Integer(kind=StandardInteger) :: beamOnOff, beamTransition, resetTimeStep
+	Integer(kind=StandardInteger), Dimension( : , : ), Allocatable :: isotopeActivityKey
+	Real(kind=DoubleReal), Dimension( : , : , : ), Allocatable :: isotopeActivity
 !Set start sim time 0
 	simTime = 0
 	workingTimeStep = timeStep	
@@ -609,6 +617,261 @@ contains
 	  Deallocate(decayTempTally)
 	End If
 	Allocate(decayTempTally(1:70800))		
+!calculate amounts at beamDuration (needs start atoms, and atoms when beam turned off)
+!open output file
+      open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
+!write to output file
+	  write(999,"(A70)") "----------------------------------------------------------------------" 
+	  write(999,"(A21,E20.10,A4,E20.10)") "Simulation time from ",simTime," to ",1.0D0*beamDuration
+	  write(999,"(A70)") "----------------------------------------------------------------------"
+!close file
+      close(999)
+!fill sim isotope slots with zeros
+	Do j=1,size(simIsotopeKeys,1) 
+	  key = simIsotopeKeys(j)
+	  decayTempTally(key) = 0.0D0
+	End Do
+	!target atoms lost due to transmutation
+	Do j=1,size(targetReactionRatesInt,1) 
+      zT = targetReactionRatesInt(j,1)
+	  aT = targetReactionRatesInt(j,2)
+	  mT = targetReactionRatesInt(j,3)
+	  w = 1.0D0*targetReactionRates(j)
+	  keyT=makeIsotopeKey(zT,aT,mT)
+	  decayTempTally(keyT) = decayTempTally(keyT) + 1.0D0*w*(beamDuration-simTime)
+	End Do 
+!Product atoms lost
+	Do j=1,size(productReactionRatesInt,1) 
+	  zP = productReactionRatesInt(j,1)
+	  aP = productReactionRatesInt(j,2)
+	  mP = productReactionRatesInt(j,3)
+	  w = 1.0D0*productReactionRates(j)
+      Call tallyDecay&
+	    (zP,aP,mP,w,1.0D0*simTime,&
+	    1.0D0*beamDuration,1.0D0*beamDuration,4)	  
+	End Do
+!Apply tally changes
+    Do j=1,size(simIsotopeKeys) 
+	  key = simIsotopeKeys(j)
+	  isotopeTallyActive(key,4) = isotopeTallyActive(key,5) + 1.0D0 * decayTempTally(key)
+!ensure no negative tally counts
+      If(isotopeTallyActive(key,4).lt.0.0D0)Then
+		isotopeTallyActive(key,4) = 0.0D0
+	  End If
+!store in the beamDuration tally
+      isotopeTallyActive(key,7) = isotopeTallyActive(key,4)
+	End Do
+!Calculate activity
+    Call calcTallyActivity()
+!output tally to output file
+	Call outputTally()	
+!make empty isotopeActivity arrays
+    If(individualIsotopeActivity(1:1).eq."Y")Then
+      isotopeActivityHeight = (amTime/timeStep)+10
+	  isotopeActivityWidth = size(simIsotopeKeys)
+	  Allocate(isotopeActivityKey(1:isotopeActivityHeight,1:isotopeActivityWidth))
+	  Allocate(isotopeActivity(1:isotopeActivityHeight,1:isotopeActivityWidth,1:3))
+!fill with -1s	
+      Do i=1,isotopeActivityHeight
+        Do j=1,isotopeActivityWidth
+	      isotopeActivityKey(i,j) = -1
+		  Do k=1,3
+	        isotopeActivity(i,j,k) = -1.0D0
+		  End Do
+	    End Do
+	  End Do	
+	End If
+!loop through time steps
+	do i=1,1000000000
+	  if(simTime.ge.amTime)then
+        exit
+	  endif
+!store last sim time
+      simTimeLast = simTime
+!Check if sim time step exceeds activity measurement time
+      If(simTime.lt.amTime.and.(simTime+workingTimeStep).gt.amTime)Then
+	    workingTimeStep = amTime - simTime
+	  EndIf
+!check if beam ends in this time step      
+      If (beamOnOff.eq.1.and.beamDuration.gt.simTime.and.&
+	    beamDuration.lt.(simTime+workingTimeStep).and.beamTransition.eq.0) Then
+	      beamTransition = 1
+		  simTimeNext = simTime+workingTimeStep !store next simTime
+		  workingTimeStep = beamDuration - simTime !adjust time step
+	  ElseIf(beamTransition.eq.1)Then
+	    beamTransition = 0
+	    beamOnOff = 0  !switch off beam
+		workingTimeStep = simTimeNext - simTime
+		resetTimeStep = 1
+!zero out reaction rates (beam off)
+		Do j=1,size(simIsotopeKeys) 
+		  key = simIsotopeKeys(j)
+		  isotopeTallyActive(key,3) = 0.0D0
+		End Do
+	  End If
+!start-end times
+      If(beamOnOff.eq.1)Then
+	    startTime = 0.0D0	  
+	    endTime = simTime + workingTimeStep
+		startTimeDisplay = startTime
+		endTimeDisplay = endTime
+      Else
+	    startTime = 0.0D0	  
+	    endTime = simTime + workingTimeStep - beamDuration
+		startTimeDisplay = startTime + beamDuration
+		endTimeDisplay = endTime + beamDuration
+      End If	  
+	  changeTime = endTime - startTime	  
+!store sim info to file - open output file
+      !open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
+!write to output file
+	  !write(999,"(A70)") "----------------------------------------------------------------------" 
+	  !write(999,"(A21,E20.10,A4,E20.10)") "Simulation time ",startTimeDisplay," to ",&
+	  !endTimeDisplay
+	  !write(999,"(A70)") "----------------------------------------------------------------------"
+!close file
+      !close(999)
+!fill sim isotope slots with zeros
+	  Do j=1,size(simIsotopeKeys,1) 
+		key = simIsotopeKeys(j)
+	    decayTempTally(key) = 0.0D0
+	  End Do
+!target atoms lost due to transmutation
+	  If(beamOnOff.eq.1)Then
+	    Do j=1,size(targetReactionRatesInt,1) 
+		  zT = targetReactionRatesInt(j,1)
+	      aT = targetReactionRatesInt(j,2)
+	      mT = targetReactionRatesInt(j,3)
+		  w = 1.0D0*targetReactionRates(j)
+		  keyT=makeIsotopeKey(zT,aT,mT)
+		  decayTempTally(keyT) = decayTempTally(keyT) + w * changeTime
+		End Do  
+	  End If
+!Product atoms lost
+	  Do j=1,size(productReactionRatesInt,1) 
+		zP = productReactionRatesInt(j,1)
+	    aP = productReactionRatesInt(j,2)
+	    mP = productReactionRatesInt(j,3)
+		w = 1.0D0*productReactionRates(j)
+        If(beamOnOff.eq.1)Then
+	      Call tallyDecay&
+		    (zP,aP,mP,w,1.0D0*startTime,&
+		    1.0D0*endTime,1.0D0*beamDuration,5)	  
+	    Else
+	  	  Call tallyDecay&
+		    (zP,aP,mP,0.0D0,1.0D0*startTime,&
+		    1.0D0*endTime,1.0D0*beamDuration,7)
+	    End If
+	  End Do
+!Apply tally changes
+      Do j=1,size(simIsotopeKeys) 
+		key = simIsotopeKeys(j)
+		If(beamOnOff.eq.1)Then
+	      isotopeTallyActive(key,4) = isotopeTallyActive(key,5) + 1.0D0 * decayTempTally(key)
+		Else
+	      isotopeTallyActive(key,4) = isotopeTallyActive(key,7) + 1.0D0 * decayTempTally(key)
+		End If
+!ensure no negative tally counts
+        If(isotopeTallyActive(key,4).lt.0.0D0)Then
+		  isotopeTallyActive(key,4) = 0.0D0
+		End If
+!store individual isotope activity tally
+        If(individualIsotopeActivity(1:1).eq."Y")Then
+          isotopeActivityKey(i,j) = key
+		  isotopeActivity(i,j,1) = endTimeDisplay 
+		  isotopeActivity(i,j,2) = isotopeTallyActive(key,4) 
+		  isotopeActivity(i,j,3) = isotopeTallyActive(key,6)*isotopeTallyActive(key,4) 
+		End If
+	  End Do
+!Calculate activity
+      Call calcTallyActivity()
+!Save activity/time to file - open output file
+      open(unit=998,file=trim(activityHistoryFile),status="old",position="append",action="write")	  
+	  write(998,"(E20.10,A1,E20.10,A1,E20.10)") simTime," ",&
+	  (simTime+workingTimeStep)," ",totalActivityAtTime
+	  close(998)
+!output tally to output file (disabled)
+	  !Call outputTally()
+!increment time step
+	  simTime = simTimeLast + workingTimeStep
+!reset time step
+      If (resetTimeStep.eq.1) Then
+	    workingTimeStep = timeStep
+		resetTimeStep = 0
+	  End If
+	End Do
+!output final tally
+    Call outputTally()
+	If(individualIsotopeActivity(1:1).eq."Y")Then
+!save isotope activities to file - open file
+      open(unit=996,file=trim(isotopeActivityFile),status="old",position="append",action="write")	
+!loop through isotopes
+	  Do j=1,isotopeActivityWidth
+	    saveIsotope = 1
+	    If(isotopeActivityKey(1,j).ne.-1)Then
+	      Do i=1,isotopeActivityHeight	    
+            If(isotopeActivityKey(i,j).ne.-1.and.&
+	  	     isotopeActivity(i,j,2).gt.0.0D0.and.&
+	 	     isotopeActivity(i,j,3).gt.0.0D0)Then
+		     saveIsotope = 1
+		    End If
+          End Do
+	    End If
+	    If(saveIsotope.eq.1)Then
+	      write(996,"(A65)") "-----------------------------------------------------------------"
+	      key = isotopeActivityKey(1,j)
+	      write(996,"(I8,A1,I8,A1,I8,A1,I8)") key," ",isotopeTallyInt(key,1)," ",&
+		    isotopeTallyInt(key,2)," ",isotopeTallyInt(key,3)
+	      write(996,"(A65)") "-----------------------------------------------------------------"
+!loop through times
+          Do i=1,isotopeActivityHeight
+            If(isotopeActivityKey(i,j).ne.-1)Then
+		      write(996,"(E20.10,A1,E20.10,A1,E20.10)") &
+		      isotopeActivity(i,j,1)," ",isotopeActivity(i,j,2)," ",isotopeActivity(i,j,3)
+		    End If
+	      End Do
+	      write(996,"(A1)") " "
+	      write(996,"(A1)") " "
+	    End If
+	  End Do	  
+	  close(996)
+	End If
+!Print gamma data for final tally - open output file
+    open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
+!write to output file
+	write(999,"(A70)") "----------------------------------------------------------------------" 
+	write(999,"(A32)") "Gamma Lines at end of Simulation"
+	write(999,"(A70)") "----------------------------------------------------------------------"
+	write(999,"(A9,A9,A9,A4,A20,A4,A20)") "Z        ","A        ","M        ",&
+	 "    ","Gamma Energy/KeV    ","    ","Gamma count/s      "
+	Do i=1,size(simIsotopeKeys) 
+	  key = simIsotopeKeys(i)  
+	  z = isotopeTallyInt(key,1)
+	  a = isotopeTallyInt(key,2)
+	  m = isotopeTallyInt(key,3)
+	  If(isotopeTallyActive(key,2).gt.0)Then 
+        !write(999,"(A40)") "----------------------------------------"	
+	    !write(999,"(I8,A1,I8,A1,I8,A1,I8)") key," ",z," ", a," ", m  	 
+        !write(999,"(A40)") "----------------------------------------"		
+	    Do j=1,size(gammaLinesKey,1)
+	      If(gammaLinesKey(j,1).eq.z.and.gammaLinesKey(j,2).eq.a.and.&
+		   gammaLinesKey(j,3).eq.m)Then
+		    gammaActivity = 1.0D0*isotopeTallyActive(key,2)*gammaLines(j,2) 
+	        !write(999,"(E20.10,A4,E20.10)") gammaLines(j,1),"    ",gammaActivity 
+	        write(999,"(I8,A1,I8,A1,I8,A4,E20.10,A4,E20.10)")&
+             z," ",a," ",m,"   ",(gammaLines(j,1)/1.0D3),"    ",gammaActivity 
+	      End If
+	    End Do
+      End If
+	End Do	  
+!close file
+    close(999)
+
+	
+	
+	
+	tempInt = 0	 !comment out next section
+	if(tempInt.eq.1)Then
 !loop through time steps
 	do i=1,1000000000
 	  if(simTime.ge.amTime)then
@@ -667,13 +930,13 @@ contains
 	    mP = productReactionRatesInt(j,3)
 		w = 1.0D0*productReactionRates(j)
         If(beamOnOff.eq.1)Then
-	      Call tallyDecay&
-		    (zP,aP,mP,w,1.0D0*simTime,&
-		    1.0D0*(simTime+workingTimeStep),1.0D0*beamDuration)	  
+	      !Call tallyDecay&
+		  !  (zP,aP,mP,w,1.0D0*simTime,&
+		  !  1.0D0*(simTime+workingTimeStep),1.0D0*beamDuration)	  
 	    Else
-	  	  Call tallyDecay&
-		    (zP,aP,mP,0.0D0,1.0D0*simTime,&
-		    1.0D0*(simTime+workingTimeStep),1.0D0*beamDuration)
+	  	  !Call tallyDecay&
+		  !  (zP,aP,mP,0.0D0,1.0D0*simTime,&
+		  !  1.0D0*(simTime+workingTimeStep),1.0D0*beamDuration)
 	    End If
 	  End Do
 !Apply tally changes
@@ -702,6 +965,10 @@ contains
 		resetTimeStep = 0
 	  End If
 	enddo
+	End If
+	
+	
+	
 !close file
     close(997)
 		
@@ -718,13 +985,13 @@ contains
 !
 !------------------------------------------------------------------------!    
   
-  Subroutine tallyDecay(zP,aP,mP,parentProductionRate,tStart,tEnd,tBeamEnd)
+  Subroutine tallyDecay(zP,aP,mP,parentProductionRate,tStart,tEnd,tBeamEnd,tallyColumn)
 !force declaration of all variables
 	Implicit None	
 !declare variables
  	Integer(kind=StandardInteger) :: i,j,k
 	Real(kind=DoubleReal) :: parentProductionRate,tStart,tEnd,tBeamEnd
- 	Integer(kind=StandardInteger) :: keyP, key
+ 	Integer(kind=StandardInteger) :: keyP, key, tallyColumn
  	Integer(kind=StandardInteger) :: zP,aP,mP
 	Real(kind=DoubleReal),Dimension(:,:,:),Allocatable::decayChainArray	
 	Real(kind=DoubleReal),Dimension(:,:),Allocatable::decayDataArray
@@ -761,7 +1028,7 @@ contains
         Do i=1,chainLength		 
 		  key = decayChainArray(i,j,1) 
 		  decayDataArray(i,1) = key 						!Tally key
-		  decayDataArray(i,2) = isotopeTallyActive(key,4)   !No. Atoms
+		  decayDataArray(i,2) = isotopeTallyActive(key,tallyColumn)   !No. Atoms
 		  decayDataArray(i,3) = decayChainArray(i,j,2)      !Half life
 		  decayDataArray(i,4) = decayChainArray(i,j,3)      !branching factor
 		  decayDataArray(i,5) = isotopeTallyInt(key,1)		!isotope Z
@@ -834,12 +1101,12 @@ contains
 	write(999,"(A140)") "-----------------------------------------------------------------&
 	---------------------------------------------------------------------------"
 	write(999,"(A15)") "Isotope Tally  "
-	write(999,"(A6,A8,A4,A4,A2,A4,A4,A18,A18,A18,A18,A18,A18)") &
+	write(999,"(A6,A8,A4,A4,A2,A4,A4,A18,A18,A18,A18,A18,A18,A18)") &
 	"Key   ","Element ",&
 	"Z   ","A   ","M ",& 
 	"mk  ","sim ",& 
 	"Half life         ","Decay Constant    ","Activity          ","Reaction Rate     ",&
-	"Start Atoms       ","End Atoms         "
+	"Start Atoms       ","Beam End Atoms    ","Atoms At Time     "
 	write(999,"(A140)") "-----------------------------------------------------------------&
 	---------------------------------------------------------------------------"
 	Do j=1,size(simIsotopeKeys)
@@ -849,12 +1116,13 @@ contains
 	    write(999,"(I6.6,A7,A1,&
 		I3.3,A1,I3.3,A1,I1.1,A1,&
 		I3.3,A1,I3.3,A1,&
-		d17.10,A1,d17.10,A1,d17.10,A1,d17.10,A1,d17.10,A1,d17.10)") &
+		d17.10,A1,d17.10,A1,d17.10,A1,d17.10,A1,d17.10,A1,d17.10,A1,d17.10)") &
 		key,isotopeTallyChar(i)," ",&
 		isotopeTallyInt(i,1)," ",isotopeTallyInt(i,2)," ",isotopeTallyInt(i,3)," ",&
 		isotopeTallyInt(i,4)," ",isotopeTallyInt(i,5)," ",&
 		isotopeTallyActive(i,1)," ",isotopeTallyActive(i,6)," ",isotopeTallyActive(i,2)," ",&
-		isotopeTallyActive(i,3)," ",isotopeTallyActive(i,5)," ",isotopeTallyActive(i,4)		
+		isotopeTallyActive(i,3)," ",isotopeTallyActive(i,5)," ",isotopeTallyActive(i,7)," ",&
+		isotopeTallyActive(i,4)		
 	  End If
     End Do
   !close output file

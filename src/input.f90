@@ -43,6 +43,7 @@ Module input
   Real :: activityTimeStep
   Integer :: projectileZ
   Integer :: projectileA
+  Character(len=1) :: individualIsotopeActivity
 !Program Files
   Character(len=255) :: isotopeFile
   Character(len=255) :: activityFile
@@ -86,6 +87,7 @@ Module input
   Public :: projectileZ  			!Variable
   Public :: projectileA  			!Variable
   Public :: activityTimeStep        !Variable
+  Public :: individualIsotopeActivity !Variable
   
 !  Output data arrays
 !  elements(n) = ELEMENT  
@@ -278,7 +280,7 @@ contains
 !declare variables
 	Integer, Parameter :: maxFileRows = 1E8 
 	Integer :: ios, i, j, k, elementCounter, headerRow
-	Character(len=25) :: buffera, bufferb, bufferc, bufferd
+	Character(len=30) :: buffera, bufferb, bufferc, bufferd
 	Character(len=255) :: bufferLong
 	Character(len=1) :: storeType
 	real :: sumMaterialComposition
@@ -408,6 +410,12 @@ contains
         read(buffera,*) activityTimeStep
 		activityTimeStep = NormaliseTime (activityTimeStep, bufferb)
 	  endif
+	  if(buffera(1:26).eq."#individualisotopeactivity")then
+		Read(1,*,IOSTAT=ios) buffera
+        individualIsotopeActivity = StrToUpper(buffera(1:1))
+	  endif
+	  
+	  
 	  
 	  
 	  
@@ -839,8 +847,8 @@ contains
 			k = k + 1	!increment store key
 !read file line
 	        Read(1,*,IOSTAT=ios) buffera, bufferb
-            read(buffera,*) gammaLines(k,1)
-			read(bufferb,*) gammaLines(k,2)
+            read(buffera,*) gammaLines(k,1) !energy
+			read(bufferb,*) gammaLines(k,2) !intensity
 			gammaLinesKey(k,1) = z
 			gammaLinesKey(k,2) = a
 			gammaLinesKey(k,3) = m

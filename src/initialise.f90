@@ -16,6 +16,7 @@ Module initialise
   Character(len=255) :: outputFile
   Character(len=255) :: activityHistoryFile
   Character(len=255) :: inOutFile
+  Character(len=255) :: isotopeActivityFile
 
 !Privacy of functions/subroutines/variables
   Private
@@ -23,6 +24,7 @@ Module initialise
   Public :: outputFile      		!Variable
   Public :: activityHistoryFile  	!Variable
   Public :: inOutFile               !Variable
+  Public :: isotopeActivityFile     !Variable
   Public :: currentWorkingDirectory	!Variable
   Public :: runInitialise		    !Subroutine
   Public :: ProgramTime             !Function
@@ -87,6 +89,17 @@ contains
 	write(997,"(A6,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I4.4)") &
 	"Date: ",theTime(1),":",theTime(2)," ",theDate(1),"/",theDate(2),"/",theDate(3)	
 	close(997)
+	
+	!Create isotopeActivityFile file
+	isotopeActivityFile = trim(currentWorkingDirectory)//"/"//"isotopeActivityFile.dat"
+	open(unit=996,file=trim(isotopeActivityFile))
+	write(996,"(A38)") "======================================"
+	write(996,"(A38)") "ISOTOPE ACTIVITY FILE"
+	write(996,"(A38)") "======================================"
+	write(996,"(A1)") " "
+	write(996,"(A6,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I4.4)") &
+	"Date: ",theTime(1),":",theTime(2)," ",theDate(1),"/",theDate(2),"/",theDate(3)	
+	close(996)
 	
 	
 	

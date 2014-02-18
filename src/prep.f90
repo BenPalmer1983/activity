@@ -267,7 +267,7 @@ contains
 !Make Isotope Tallys
     Allocate(isotopeTallyChar(1:70800))
     Allocate(isotopeTallyInt(1:70800,1:5))
-	Allocate(isotopeTallyActive(1:70800,1:6))
+	Allocate(isotopeTallyActive(1:70800,1:7))
 !Fill with blank data	
 	write(999,"(A40,F8.4)") "Fill tally with blank data              ",ProgramTime()
 	do i=1,70800
@@ -283,6 +283,7 @@ contains
 	  isotopeTallyActive(i,4) = 0.0D0		!atom tally
 	  isotopeTallyActive(i,5) = 0.0D0		!atom tally (starting)
 	  isotopeTallyActive(i,6) = 0.0D0		!decay constant
+	  isotopeTallyActive(i,7) = 0.0D0		!atom tally (end beam)
 	enddo	
 !Fill with isotope data		
     write(999,"(A40,F8.4)") "Fill tally with isotope data            ",ProgramTime()

@@ -25,7 +25,7 @@ Fe 100
 #amtime
 250000 s
 #timestep
-50000 s
+1000 s
 #projectile
 1 1
 #targetthickness
@@ -36,3 +36,5 @@ Fe 100
 60.2
 #activitytimestep
 60.0 s
+#individualisotopeactivity
+no
