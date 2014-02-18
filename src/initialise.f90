@@ -11,16 +11,21 @@ Module initialise
   Implicit None
   
 !declare global variables  
-  Real :: programStartTime
+  Real(kind=SingleReal) :: programStartTime
   Character(len=255) :: currentWorkingDirectory
   Character(len=255) :: outputFile
+  Character(len=255) :: activityHistoryFile
+  Character(len=255) :: inOutFile
 
 !Privacy of functions/subroutines/variables
   Private
   Public :: programStartTime		!Variable
   Public :: outputFile      		!Variable
+  Public :: activityHistoryFile  	!Variable
+  Public :: inOutFile               !Variable
   Public :: currentWorkingDirectory	!Variable
   Public :: runInitialise		    !Subroutine
+  Public :: ProgramTime             !Function
   
   
 !------------------------------------------------------------------------!
@@ -60,11 +65,52 @@ contains
 	write(999,"(A6,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I4.4)") &
 	"Date: ",theTime(1),":",theTime(2)," ",theDate(1),"/",theDate(2),"/",theDate(3)	
 	close(999)
+	
+	!Create activity history file
+	activityHistoryFile = trim(currentWorkingDirectory)//"/"//"activityHistory.dat"
+	open(unit=998,file=trim(activityHistoryFile))
+	write(998,"(A38)") "======================================"
+	write(998,"(A38)") "ACTIVITY HISTORY FILE"
+	write(998,"(A38)") "======================================"
+	write(998,"(A1)") " "
+	write(998,"(A6,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I4.4)") &
+	"Date: ",theTime(1),":",theTime(2)," ",theDate(1),"/",theDate(2),"/",theDate(3)	
+	close(998)
+	
+	!Create in-out file
+	inOutFile = trim(currentWorkingDirectory)//"/"//"inOutFile.dat"
+	open(unit=997,file=trim(inOutFile))
+	write(997,"(A38)") "======================================"
+	write(997,"(A38)") "ACTIVITY HISTORY FILE"
+	write(997,"(A38)") "======================================"
+	write(997,"(A1)") " "
+	write(997,"(A6,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I4.4)") &
+	"Date: ",theTime(1),":",theTime(2)," ",theDate(1),"/",theDate(2),"/",theDate(3)	
+	close(997)
+	
+	
+	
+	
 
   End Subroutine runInitialise
   
   
+    
+    
   
+!------------------------------------------------------------------------!
+!                                                                        !
+! MODULE FUNCTIONS                                                       !
+!                                                                        !
+!                                                                        !
+!------------------------------------------------------------------------!
+
+function ProgramTime () RESULT (outputTime)
+    ! -- Argument and result
+	Real(kind=SingleReal) :: inputTime, outputTime 
+	Call cpu_time(inputTime)
+	outputTime = inputTime - programStartTime
+End Function ProgramTime    
   
 
 End Module initialise

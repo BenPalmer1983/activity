@@ -1,0 +1,38 @@
+#elements
+Fe 100
+#isotopes
+"data/isotopes.txt"
+#decaymodes
+"data/decaymodes.txt"
+#gammaenergies
+"data/gammaenergies.txt"
+#xsfiles
+"data/xs"
+#trajfile
+"examples/Fe36MeV.exyz"
+#polyfitorder
+3
+#integrationgranularity
+10
+#beamflux
+0.5 uA
+#beamenergy
+36 MeV
+#beamduration
+300 s
+#beamarea
+100 mm2
+#amtime
+250000 s
+#timestep
+50000 s
+#projectile
+1 1
+#targetthickness
+0.5 mm
+#materialdensity
+8000 kgm3
+#vpi
+60.2
+#activitytimestep
+60.0 s

@@ -24,6 +24,8 @@ Module maths
   Public :: QuadraticInterpolationCalc  
   Public :: CubicInterpolationCalc  
   Public :: CalcResidualSquareSum  
+! Decay Equations    
+  Public :: CalcIsotopeAmount
   
   
 Contains
@@ -62,7 +64,13 @@ Contains
 ! - RandomSeed
 ! - RandomDataPoints
 ! 
-  
+! Decay Equations  
+! - Decay Functions
+! 
+! Useful Miscellaneous Functions
+! - change ArraySize1D
+! - change ArraySize2D
+
 
   
   
@@ -720,6 +728,354 @@ Contains
 	  enddo
 	enddo
   End Function RandomDataPoints  
+  
+  
+  
+  
+   
+  
+  
+!------------------------------------------------------------------------!
+! Decay Functions
+!------------------------------------------------------------------------! 
+  
+   
+  
+  Function CalcIsotopeAmount(parentProductionRate,decayDataArray,tStart,&
+  tEnd,tBeamEnd) RESULT (isotopeChange)
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i,j,k,decaySteps,decayStepCounter
+	Real(kind=DoubleReal) :: parentProductionRate,tStart,tEnd,tBeamEnd,dTime
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: decayDataArray
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: decayDataArrayTemp
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: isotopeChange
+	Real(kind=DoubleReal) :: w,lP,lA,lB,lC
+	Real(kind=DoubleReal) :: lamlp !la-lp
+	Real(kind=DoubleReal) :: lpmla !lp-la
+	Real(kind=DoubleReal) :: lalamlalp !lala-lalp
+	!Real(kind=DoubleReal) :: lalalalp !lala-lalp
+	Real(kind=DoubleReal) :: eplP,enlP,eplA,enlA,eplB,enlB,eplC,enlC
+	Real(kind=DoubleReal) :: eplAnlP,enlAnlP,eplAplP
+	Real(kind=DoubleReal) :: nPstart,nAstart,nBstart,nCstart
+	Real(kind=DoubleReal) :: nPend,nAend,nBend,nCend
+	Real(kind=DoubleReal) :: ePA, eAB, eBC
+	Real(kind=DoubleReal) :: stableLimit
+	
+	!decayDataArray(i,1)  !Key
+	!decayDataArray(i,2)  !No. Atoms
+	!decayDataArray(i,3)  !Half Life
+	!decayDataArray(i,4)  !Branching Factor  
+	
+!set variables
+    dTime = tEnd - tStart
+	
+!Alter decay chain
+! - If dTime * decay constant lt 1.0D-11 then assume stable for purposes of simulation
+    decayStepCounter = 0
+	Do i=1,size(decayDataArray,1)
+	  stableLimit = (log(2.0D0)/decayDataArray(i,3))*dTime	  
+	  decayStepCounter = decayStepCounter + 1
+	  If(stableLimit.lt.1.0D-9)Then
+	    decayDataArray(i,3) = -1		!set as stable
+	    Exit
+	  End If
+	End Do
+!Resize array
+	decayDataArray = ArraySize2DDouble(decayDataArray,decayStepCounter)
+ 
+!set decay steps/isotopes
+    decaySteps = size(decayDataArray,1)
+!allocate isotopeChange array	
+	Allocate(isotopeChange(1:decaySteps,1:10))
+	!isotopeChange(i,1)		!Tally key
+	!isotopeChange(i,2)		!Change in isotope amount
+	!isotopeChange(i,3)		!Start amount
+	!isotopeChange(i,4)		!End amount
+	!isotopeChange(i,5)		!Isotope Z
+	!isotopeChange(i,6)		!Isotope A
+	!isotopeChange(i,7)		!T1/2
+	!isotopeChange(i,8)		!Decay constant
+	!isotopeChange(i,9)		!Branching factor
+	!isotopeChange(i,10)	!Parent production rate
+	
+!Fill with starting data
+    Do i=1,decaySteps
+	  isotopeChange(i,1) = decayDataArray(i,1)	
+	  isotopeChange(i,2) = 0.0D0					!default no change
+	  isotopeChange(i,3) = decayDataArray(i,2)	
+	  isotopeChange(i,4) = decayDataArray(i,2)		!default no change
+	  isotopeChange(i,5) = decayDataArray(i,5)	
+	  isotopeChange(i,6) = decayDataArray(i,6)
+	  isotopeChange(i,7) = decayDataArray(i,3)	
+	  isotopeChange(i,8) = log(2.0D0)/decayDataArray(i,3)	
+	  isotopeChange(i,9) = decayDataArray(i,4)	
+	  isotopeChange(i,10) = parentProductionRate			
+	End Do
+		
+!debug print
+    !print *,"Decay Steps",decaySteps
+	!do i=1,decaySteps
+	!  print *,i,parentProductionRate,tStart,tEnd,&
+	!  decayDataArray(i,1),decayDataArray(i,2),decayDataArray(i,3),decayDataArray(i,4)
+	!enddo
+	
+  
+	
+!------------------
+!---1 Decay Step	
+!------------------
+	If(decaySteps.eq.1)Then
+	  w = parentProductionRate
+	  nPstart = decayDataArray(1,2)
+	  nPend = 1.0D0*(nPstart+1.0D0*dTime*w)
+!force ge than 0
+	  If(nPend.lt.0)Then
+	    nPend = 0
+	  End If
+!Store key and tally change data	
+	  isotopeChange(1,4) = nPend
+	End If  
+!------------------
+!---2 Decay Steps	
+!------------------	  
+	If(decaySteps.eq.2)Then
+	  w = parentProductionRate
+!parent terms
+	  lP = log(2.0D0)/decayDataArray(1,3)	 
+	  enlP = exp(-1.0D0*dTime*lP)
+	  nPstart = decayDataArray(1,2)
+!child A terms	  
+	  nAstart = decayDataArray(2,2)
+	  ePA = decayDataArray(2,4) 
+!calc nP
+	  nPend = (1.0D0/lP)*(enlP*(nPstart*lP-w)+w)
+!calc nA	
+	  nAend = nAstart+ePA*((1-enlP)*nPstart+w*(dTime+(enlP-1)/lP))
+!force ge than 0
+	  If(nPend.lt.0)Then
+	    nPend = 0.0D0
+	  End If
+	  If(nAend.lt.0)Then
+	    nAend = 0.0D0
+	  End If
+!Store key and tally change data
+	  isotopeChange(1,4) = nPend
+	  isotopeChange(2,4) = nAend
+	End If
+!------------------
+!---3 Decay Steps	
+!------------------	  
+	If(decaySteps.eq.3)Then
+	  dTime = tEnd - tStart
+	  w = parentProductionRate
+!parent terms
+	  lP = log(2.0D0)/decayDataArray(1,3)
+	  eplP = exp(1.0D0*dTime*lP)
+	  enlP = exp(-1.0D0*dTime*lP)
+	  nPstart = decayDataArray(1,2)
+!child A terms	  
+	  nAstart = decayDataArray(2,2)
+	  ePA = decayDataArray(2,4) 
+	  lA = log(2.0D0)/decayDataArray(2,3)
+	  eplA = exp(1.0D0*dTime*lA)
+	  enlA = exp(-1.0D0*dTime*lA)
+	  eplAnlP = exp(1.0D0*dTime*lA-1.0D0*dTime*lP)
+!child B terms	  
+	  nBstart = decayDataArray(3,2)
+	  eAB = decayDataArray(3,4) 
+	  lB = log(2.0D0)/decayDataArray(3,3)
+	  eplA = exp(1.0D0*dTime*lA)
+	  enlA = exp(-1.0D0*dTime*lA)
+	  eplP = exp(1.0D0*dTime*lP)
+	  enlP = exp(-1.0D0*dTime*lP)
+	  enlAnlP = exp(-1.0D0*dTime*lA-1.0D0*dTime*lP)
+	  eplAplP = exp(1.0D0*dTime*lA+1.0D0*dTime*lP)
+!mixed terms
+      lamlp = lA-lP
+      lpmla = lP-lA
+      lalamlalp = lA*lA-lA*lP	  
+!calc nP
+	  nPend = (1.0D0/lP)*(enlP*(nPstart*lP-w)+w)
+!calc nA	
+	  nAend = (1/(lA*(lA-lP)))*(nAstart*(lA*(lA-lP))+ePA*((enlA-1)*w*lP+&
+	  lA*(w-nPstart*lP*enlA+enlP*(nPstart*lP-w))))	
+!calc nB
+	  nBend = (1/(lA*(lA-lP)*lP))*((lA-lP)*(-1.0D0*w*eAB*ePA*lA+&
+	  (-1.0D0*w*eAB*ePA+(nBstart+eAB*(nAstart+(dTime*w+nPstart)*ePA))*&
+	  lA)*lP)+eAB*(enlP*ePA*lA*lA*(w-nPstart*lP)+enlA*lP*(ePA*(-1.0D0*&
+	  w+nPstart*lA)*lP+nAstart*lA*(lP-lA))))	
+!force ge than 0
+	  If(nPend.lt.0)Then
+	    nPend = 0
+	  End If
+	  If(nAend.lt.0)Then
+	    nAend = 0
+	  End If
+	  If(nBend.lt.0)Then
+	    nBend = 0
+	  End If  
+!Store key and tally change data		
+	  isotopeChange(1,4) = nPend
+	  isotopeChange(2,4) = nAend
+	  isotopeChange(3,4) = nBend
+	End If
+!------------------
+!---4 Decay Steps	
+!------------------	  
+	If(decaySteps.eq.4)Then
+	  dTime = tEnd - tStart
+	  w = parentProductionRate
+!parent terms
+	  lP = log(2.0D0)/decayDataArray(1,3)
+	  eplP = exp(1.0D0*dTime*lP)
+	  enlP = exp(-1.0D0*dTime*lP)
+	  nPstart = decayDataArray(1,2)
+!child A terms	  
+	  nAstart = decayDataArray(2,2)
+	  ePA = decayDataArray(2,4) 
+	  lA = log(2.0D0)/decayDataArray(2,3)
+	  eplA = exp(1.0D0*dTime*lA)
+	  enlA = exp(-1.0D0*dTime*lA)
+	  eplAnlP = exp(1.0D0*dTime*lA-1.0D0*dTime*lP)
+!child B terms	  
+	  nBstart = decayDataArray(3,2)
+	  eAB = decayDataArray(3,4) 
+	  lB = log(2.0D0)/decayDataArray(3,3)
+	  eplA = exp(1.0D0*dTime*lA)
+	  enlA = exp(-1.0D0*dTime*lA)
+	  eplP = exp(1.0D0*dTime*lP)
+	  enlP = exp(-1.0D0*dTime*lP)
+	  enlAnlP = exp(-1.0D0*dTime*lA-1.0D0*dTime*lP)
+	  eplAplP = exp(1.0D0*dTime*lA+1.0D0*dTime*lP)
+!mixed terms
+      lamlp = lA-lP
+      lpmla = lP-lA
+      lalamlalp = lA*lA-lA*lP	  
+!calc nP
+	  nPend = (1.0D0/lP)*(enlP*(nPstart*lP-w)+w)
+!calc nA	
+	  nAend = (1/(lA*(lA-lP)))*(nAstart*(lA*(lA-lP))+ePA*((enlA-1)*w*lP+&
+	  lA*(w-nPstart*lP*enlA+enlP*(nPstart*lP-w))))	
+!calc nB
+	  nBend = (1/(lB*(lB-lA)*(lA-lP)*(lB-lP)))*exp(-1.0D0*dTime*lB)*&
+	  (-1.0D0*nBstart*(lA-lB)*lB*(lA-lP)*(lB-lP)+eAB*((exp(dTime*(lB-lA))&
+	  -1.0D0)*nAstart*lA*lB*(lA-lP)*(lB-lP)+ePA*((exp(dTime*lB)-&
+	  exp(dTime*(lB-lA)))*w*lB*lP*(lP-lB)+lA*(-1.0D0*(-1.0D0+exp(dTime*lB)&
+	  *w*lP*lP+(-1.0D0+exp(dTime*(lB-lA)))*nPstart*lB*lP*lP+lB*lB*&
+	  ((exp(dTime*lB)-exp(dTime*lB-lP))*w-(exp(dTime*(lB-lA))-&
+	  exp(dTime*(lB-lP)))*nPstart*lP))+lA*lA*((-1.0D0+exp(dTime*lB)*&
+	  w*lP+lB*(-1.0D0*exp(dTime*lB)*w+nPstart*lP+exp(dTime*(lB-lP))*&
+	  (w-nPstart*lP))))))))
+	  
+	  
+!force ge than 0
+	  If(nPend.lt.0)Then
+	    nPend = 0
+	  End If
+	  If(nAend.lt.0)Then
+	    nAend = 0
+	  End If
+	  If(nBend.lt.0)Then
+	    nBend = 0
+	  End If  
+!Store key and tally change data		
+	  isotopeChange(1,4) = nPend
+	  isotopeChange(2,4) = nAend
+	  isotopeChange(3,4) = nBend
+	End If	
+	
+	
+!Store changes in isotope amounts
+	Do i=1,size(isotopeChange,1)
+	  isotopeChange(i,2) = isotopeChange(i,4) - isotopeChange(i,3)
+	End Do
+	
+	
+	!print chain
+    !Do i=1,decaySteps	
+	!  print *,i,isotopeChange(i,5),isotopeChange(i,6),isotopeChange(i,8),&
+	!  isotopeChange(i,9),isotopeChange(i,2),isotopeChange(i,10)
+	!  If(i.lt.decaySteps)Then
+	!    print *,"\/"
+	!  Else
+    !    print *," "
+    !    print *," "
+    !    print *," "
+    !  End If
+    !End Do	
+	
+	!Do i=1,size(isotopeChange,1)
+	!  print *,i,isotopeChange(i,1),isotopeChange(i,2),isotopeChange(i,3),&
+	!  isotopeChange(i,4),isotopeChange(i,5),isotopeChange(i,6),isotopeChange(i,7),&
+	!  decayDataArray(i,2)
+	!End Do
+  
+  
+  End Function CalcIsotopeAmount  
+  
+  
+  
+  
+   
+  
+  
+!------------------------------------------------------------------------!
+! Miscellaneous Functions
+!------------------------------------------------------------------------! 
+  
+  
+  Function ArraySize1DDouble (inputArray,arraySize) RESULT (outputArray)
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i
+    Integer(kind=StandardInteger) :: arraySize
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: inputArray
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: outputArray
+!Allocate output array
+    Allocate(outputArray(1:arraySize))
+!transfer data
+    Do i=1,arraySize
+	  If(i.le.size(inputArray))Then
+	    outputArray(i) = inputArray(i)
+	  Else
+        outputArray(i) = 0.0D0	  
+	  End If 	
+	End Do  
+  End Function ArraySize1DDouble 
+  
+  Function ArraySize2DDouble (inputArray,arraySizeHeight,arraySizeWidthIn) &
+    RESULT (outputArray)
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i, j
+	Integer(kind=StandardInteger) :: arraySizeHeight
+	Integer(kind=StandardInteger), optional :: arraySizeWidthIn
+	Integer(kind=StandardInteger) :: arraySizeWidth
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: inputArray
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: outputArray
+!catch optional width
+	if(present(arraySizeWidthIn))then
+	  arraySizeWidth = arraySizeWidthIn
+	else
+	  arraySizeWidth = size(inputArray,2)
+	endif
+!Allocate output array
+    Allocate(outputArray(1:arraySizeHeight,1:arraySizeWidth))
+!transfer data
+    Do i=1,arraySizeHeight
+	  Do j=1,arraySizeWidth
+	    If(i.le.size(inputArray,1).and.j.le.size(inputArray,2))Then
+	      outputArray(i,j) = inputArray(i,j)
+	    Else
+          outputArray(i,j) = 0.0D0	  
+	    End If 
+	  End Do	
+	End Do  
+  End Function ArraySize2DDouble 
   
   
   

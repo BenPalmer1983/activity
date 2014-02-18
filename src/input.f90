@@ -19,6 +19,7 @@ Module input
   Integer, Dimension( : , : ), Allocatable :: decayInt
   Double Precision, Dimension( : , : ), Allocatable :: decayDouble
   Character(len=2), Dimension( : ), Allocatable :: elements
+  Character(len=2), Dimension( : ), Allocatable :: elementSymbol
   Real, Dimension( : ), Allocatable :: materialComposition
   Integer, Dimension( : ), Allocatable :: exyzKey
   Real, Dimension( : , : ), Allocatable :: exyzData
@@ -39,6 +40,7 @@ Module input
   Real :: numberDensity
   Real :: materialDensity
   Real :: vpi
+  Real :: activityTimeStep
   Integer :: projectileZ
   Integer :: projectileA
 !Program Files
@@ -52,6 +54,7 @@ Module input
 !Privacy of functions/subroutines/variables
   Private
   Public :: runInput				!Subroutine
+  Public :: makeIsotopeKey			!function
   Public :: isotopesChar			!Variable
   Public :: isotopesInt  			!Variable
   Public :: isotopesReal			!Variable
@@ -59,6 +62,7 @@ Module input
   Public :: decayInt				!Variable
   Public :: decayDouble				!Variable
   Public :: elements				!Variable
+  Public :: elementSymbol			!Variable
   Public :: materialComposition	    !Variable
   Public :: exyzKey			    	!Variable
   Public :: exyzData				!Variable
@@ -78,9 +82,10 @@ Module input
   Public :: targetThickness  		!Variable
   Public :: numberDensity  		    !Variable
   Public :: materialDensity  		!Variable
-  Public :: vpi  		!Variable
+  Public :: vpi  		            !Variable
   Public :: projectileZ  			!Variable
   Public :: projectileA  			!Variable
+  Public :: activityTimeStep        !Variable
   
 !  Output data arrays
 !  elements(n) = ELEMENT  
@@ -124,13 +129,16 @@ contains
   
 !read in user input data, input from the command line
   Subroutine readUserInput()
-  !force declaration of all variables
+!force declaration of all variables
 	Implicit None
-  
+!open output file
+    open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
+!write to output file
+    write(999,"(A34,F8.4)") "Read user input                   ",ProgramTime()
 !Read in name of input file
     call get_command_argument(1,activityFile)
-	
-  
+!close output file
+    close(999)  
   End Subroutine readUserInput
   
   
@@ -138,14 +146,17 @@ contains
 !read in isotope data  
   Subroutine readIsotopeData()
 !force declaration of all variables
-	Implicit None
-	
+	Implicit None	
 !declare variables
-	Integer, Parameter :: maxFileRows = 1E8 
-	Integer :: ios, i, j, k, isotopeCounter, fileRows
+	Integer(kind=StandardInteger), Parameter :: maxFileRows = 1E8 
+	Integer(kind=StandardInteger) :: ios, i, j, k, isotopeCounter, fileRows
+	Integer(kind=StandardInteger) :: maxZ
 	Character(len=25) :: buffera, bufferb, bufferc, bufferd, buffere, bufferf
 	Character(len=255) :: bufferLong
-	 
+!open output file
+    open(unit=999,file=trim(outputFile),status="old",position="append",action="write")	
+!write to output file
+    write(999,"(A36,F8.4)") "Read Isotope Data                   ",ProgramTime()	 
 !read isotope file path from input file
     Open(UNIT=1,FILE=activityFile) 
     do i=1,maxFileRows 
@@ -190,6 +201,7 @@ contains
 !Read in data
 	isotopeCounter = 0
 	Open(UNIT=1,FILE=isotopeFile) 
+	maxZ = 0
     do i=1,fileRows 
 	  !Read in line
 	  Read(1,*,IOSTAT=ios) buffera, bufferb
@@ -203,6 +215,9 @@ contains
 		BACKSPACE(1)
 		Read(1,*,IOSTAT=ios) buffera, bufferb, bufferc, bufferd
 		read(bufferd,*) isotopesInt(isotopeCounter,1) 		
+		if(isotopesInt(isotopeCounter,1).gt.maxZ)then
+		  maxZ = isotopesInt(isotopeCounter,1)
+		endif
 	  endif	  
 	  if(buffera(1:6).eq."Atomic".and.bufferb(1:6).eq."Symbol")then
 		!Re-read file line
@@ -241,25 +256,25 @@ contains
     enddo
 	CLOSE(1) !close file	
 	
-	!must convert from isotopic composition to percentage by number
+!make element array
+    Allocate(elementSymbol(0:maxZ))
 	
-	!do i=1,isotopeCounter
-	!  print *,isotopesInt(i,1),isotopesChar(i),isotopesInt(i,2),&
-	!  isotopesReal(i,1),isotopesReal(i,2)
-	!enddo
-	
-
+!store Z and element symbol
+    elementSymbol(0) = "NN" !Neutron
+    do i=1,size(isotopesInt,1)
+	  elementSymbol(isotopesInt(i,1)) = isotopesChar(i)
+	enddo
+!close output file
+    close(999) 
   End Subroutine readIsotopeData
   
   
   
   
 !read in activity input file    
-  Subroutine readActivityIn()
-  
+  Subroutine readActivityIn()  
 !force declaration of all variables
-	Implicit None
-	
+	Implicit None	
 !declare variables
 	Integer, Parameter :: maxFileRows = 1E8 
 	Integer :: ios, i, j, k, elementCounter, headerRow
@@ -267,6 +282,10 @@ contains
 	Character(len=255) :: bufferLong
 	Character(len=1) :: storeType
 	real :: sumMaterialComposition
+!open output file
+    open(unit=999,file=trim(outputFile),status="old",position="append",action="write")	
+!write to output file
+    write(999,"(A45,F8.4)") "Read Activity User Input File                ",ProgramTime()	 
   	
  !count to allocate array rows 
     elementCounter = 0
@@ -384,6 +403,13 @@ contains
 	    Read(1,*,IOSTAT=ios) buffera
         read(buffera,*) vpi
 	  endif
+	  if(buffera(1:17).eq."#activitytimestep")then
+		Read(1,*,IOSTAT=ios) buffera, bufferb
+        read(buffera,*) activityTimeStep
+		activityTimeStep = NormaliseTime (activityTimeStep, bufferb)
+	  endif
+	  
+	  
 	  
 !Read in elements
 	  if(buffera(1:9).eq."#elements")then
@@ -417,22 +443,24 @@ contains
 
 	
 	
-	
-  
+!close output file
+    close(999)
   End Subroutine readActivityIn  
   
   
   
   Subroutine readTraj()
-  
-  !force declaration of all variables
-	Implicit None
-	
+!force declaration of all variables
+	Implicit None	
 !declare variables
 	Integer, Parameter :: maxFileRows = 1E8 
 	Integer :: ios, i, j, k, startCounter, dataCounter, fileRows
 	Real :: x, y, z
 	Character(len=20) :: buffera, bufferb, bufferc, bufferd, buffere, bufferf
+!open output file
+    open(unit=999,file=trim(outputFile),status="old",position="append",action="write")	
+!write to output file
+    write(999,"(A36,F8.4)") "Read Trajectory File                ",ProgramTime()	 
   
 !count data lines
     startCounter = 0
@@ -489,13 +517,16 @@ contains
 	  endif
     enddo
 	CLOSE(1) !close file
-  
+
+!write to output file
+    write(999,"(A18,I8,A8,F8.4)") "Data point count: ",dataCounter,"        ",ProgramTime()	
   
     !do i=1,size(exyzKey)
 	!  print *,exyzKey(i),exyzData(i,1),exyzData(i,2)
 	!enddo
     
-  
+!close output file
+    close(999)  
   End Subroutine readTraj  
   
   
@@ -685,15 +716,15 @@ contains
 	
 !Allocate arrays
 	Allocate(decayChar(1:decayCounter))
-	Allocate(decayInt(1:decayCounter,1:6))
+	Allocate(decayInt(1:decayCounter,1:8))
 	Allocate(decayDouble(1:decayCounter,1:2))
   
 !  decayChar(n) = Element e.g. FE, CR  
-!  decayInt(n,1) = parent Z     
-!  decayInt(n,2) = parent A    
+!  decayInt(n,1) = parent A     	!A,Z wrong way round
+!  decayInt(n,2) = parent Z    
 !  decayInt(n,3) = parent meta      
-!  decayInt(n,4) = child Z     
-!  decayInt(n,5) = child A    
+!  decayInt(n,4) = child A    
+!  decayInt(n,5) = child Z    
 !  decayInt(n,6) = child meta    
 !  decayDouble(n,1) = branching factor   
 !  decayDouble(n,2) = half life   
@@ -720,6 +751,13 @@ contains
 	  read(buffere,*) decayInt(decayCounter,4)
 	  read(bufferf,*) decayInt(decayCounter,5)
 	  decayInt(decayCounter,6) = 0
+	  decayInt(decayCounter,7) = &
+	  makeIsotopeKey(decayInt(decayCounter,2),decayInt(decayCounter,1),&
+	  decayInt(decayCounter,3))
+	  decayInt(decayCounter,8) = &
+	  makeIsotopeKey(decayInt(decayCounter,5),decayInt(decayCounter,4),&
+	  decayInt(decayCounter,6))
+	  
       read(bufferg,*) decayDouble(decayCounter,1)
 	  read(bufferh,*) decayDouble(decayCounter,2)
     enddo
@@ -940,7 +978,14 @@ End Function NormaliseDensity
   
   
   
-  
+  Function makeIsotopeKey (z, a, m) RESULT (key)
+!force declaration of all variables
+	Implicit None
+!declare variables
+	Integer(kind=StandardInteger) :: z,a,m,key
+	key = 590 * z + 290 * m + a
+!returns y
+  End Function makeIsotopeKey  
   
   
   

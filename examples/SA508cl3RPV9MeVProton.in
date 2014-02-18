@@ -1,0 +1,49 @@
+#elements
+C 0.017
+Si 0.10
+Mn 1.35
+P 0.006
+S 0.002
+Cr 0.16
+Ni 0.82
+Mo 0.50
+V 0.004
+Cu 0.03
+N 0.006
+Fe 96.852
+#isotopes
+"data/isotopes.txt"
+#decaymodes
+"data/decaymodes.txt"
+#gammaenergies
+"data/gammaenergies.txt"
+#xsfiles
+"data/xs"
+#trajfile
+"examples/Fe9MeVProton.exyz"
+#polyfitorder
+3
+#integrationgranularity
+10
+#beamflux
+1 uA
+#beamenergy
+9 MeV
+#beamduration
+300 s
+#beamarea
+100 mm2
+#amtime
+1 D
+#timestep
+10 s
+#projectile
+1 1
+#targetthickness
+10 mm
+#materialdensity
+8000 kgm3
+#vpi
+60.2
+#activitytimestep
+60.0 s
