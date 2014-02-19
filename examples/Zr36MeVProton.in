@@ -1,0 +1,34 @@
+#elements
+Zr 100
+#isotopes
+"data/isotopes.txt"
+#decaymodes
+"data/decaymodes.txt"
+#gammaenergies
+"data/gammaenergies.txt"
+#xsfiles
+"data/xs"
+#trajfile
+"examples/Zr9MeVProton.exyz"
+#polyfitorder
+3
+#integrationgranularity
+10
+#beamflux
+1 uA
+#beamenergy
+9 MeV
+#beamduration
+300 s
+#beamarea
+100 mm2
+#amtime
+1 D
+#timestep
+100 s
+#projectile
+1 1
+#targetthickness
+10 mm
+#materialdensity
+6490 kgm3

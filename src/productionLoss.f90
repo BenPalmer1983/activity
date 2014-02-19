@@ -89,6 +89,7 @@ contains
 	Call prepareIsotopeTally()
 	!Call makeReducedDecayList()
 	Call runInOut()
+	Call finishProductionLoss()
   
   End Subroutine runProductionLoss
 
@@ -571,6 +572,10 @@ contains
 	Integer(kind=StandardInteger) :: beamOnOff, beamTransition, resetTimeStep
 	Integer(kind=StandardInteger), Dimension( : , : ), Allocatable :: isotopeActivityKey
 	Real(kind=DoubleReal), Dimension( : , : , : ), Allocatable :: isotopeActivity
+	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: orderedActivity
+	Real(kind=DoubleReal) :: tempAA, tempAB, tempBA, tempBB
+	Integer(kind=StandardInteger) :: orderedActivityCount
+	Logical :: sorted
 !Set start sim time 0
 	simTime = 0
 	workingTimeStep = timeStep	
@@ -622,7 +627,7 @@ contains
       open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
 !write to output file
 	  write(999,"(A70)") "----------------------------------------------------------------------" 
-	  write(999,"(A21,E20.10,A4,E20.10)") "Simulation time from ",simTime," to ",1.0D0*beamDuration
+	  write(999,"(A20,E20.10)") "Simulation tally at ",1.0D0*beamDuration
 	  write(999,"(A70)") "----------------------------------------------------------------------"
 !close file
       close(999)
@@ -693,6 +698,9 @@ contains
 	    workingTimeStep = amTime - simTime
 	  EndIf
 !check if beam ends in this time step      
+      If(simTime.ge.beamDuration)Then
+	    beamOnOff = 0
+	  End If
       If (beamOnOff.eq.1.and.beamDuration.gt.simTime.and.&
 	    beamDuration.lt.(simTime+workingTimeStep).and.beamTransition.eq.0) Then
 	      beamTransition = 1
@@ -801,6 +809,10 @@ contains
 	  End If
 	End Do
 !output final tally
+    !write to output file
+	write(999,"(A70)") "----------------------------------------------------------------------" 
+	write(999,"(A20,E20.10)") "Simulation tally at ",1.0D0*amTime
+	write(999,"(A70)") "----------------------------------------------------------------------"
     Call outputTally()
 	If(individualIsotopeActivity(1:1).eq."Y")Then
 !save isotope activities to file - open file
@@ -840,7 +852,7 @@ contains
     open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
 !write to output file
 	write(999,"(A70)") "----------------------------------------------------------------------" 
-	write(999,"(A32)") "Gamma Lines at end of Simulation"
+	write(999,"(A33,E20.10)") "Gamma Lines at end of Simulation ",amTime
 	write(999,"(A70)") "----------------------------------------------------------------------"
 	write(999,"(A9,A9,A9,A4,A20,A4,A20)") "Z        ","A        ","M        ",&
 	 "    ","Gamma Energy/KeV    ","    ","Gamma count/s      "
@@ -864,114 +876,60 @@ contains
 	    End Do
       End If
 	End Do	  
+!order final tally by activity - count active isotopes
+    orderedActivityCount = 0
+	Do j=1,size(simIsotopeKeys) 
+	  key = simIsotopeKeys(j)
+	  If(isotopeTallyActive(key,2).gt.0.0D0)Then	      
+	    orderedActivityCount = orderedActivityCount + 1
+	  End If
+    End Do	  
+	Allocate(orderedActivity(1:orderedActivityCount,1:2))
+	orderedActivityCount = 0
+	Do j=1,size(simIsotopeKeys) 
+	  key = simIsotopeKeys(j)
+	  If(isotopeTallyActive(key,2).gt.0.0D0)Then 
+	    orderedActivityCount = orderedActivityCount + 1
+	    orderedActivity(orderedActivityCount,1) = key
+	    orderedActivity(orderedActivityCount,2) = isotopeTallyActive(key,2)
+	  End If
+	End Do
+!Sort orderedActivity array
+    sorted = .false.
+	Do While(sorted.eqv..false.)
+	  sorted = .true.
+	  Do j=1,(size(orderedActivity,1)-1)
+        If(orderedActivity(j,2).lt.orderedActivity(j+1,2))Then
+		  sorted = .false.
+!temp store array values
+		  tempAA = orderedActivity(j,1)
+		  tempAB = orderedActivity(j,2)
+		  tempBA = orderedActivity(j+1,1)
+		  tempBB = orderedActivity(j+1,2)
+!swap values
+		  orderedActivity(j,1) = tempBA
+		  orderedActivity(j,2) = tempBB
+		  orderedActivity(j+1,1) = tempAA
+		  orderedActivity(j+1,2) = tempAB
+		End If
+      End Do	  
+	End Do
+!output
+	write(999,"(A1)") " "
+    write(999,"(A70)") "----------------------------------------------------------------------" 
+	write(999,"(A33)") "Activities Ordered by Most Active"
+	write(999,"(A70)") "----------------------------------------------------------------------"
+	write(999,"(A1)") " "
+	Do j=1,size(orderedActivity,1)
+	  key = orderedActivity(j,1)
+	  write(999,"(I8,A1,A2,A1,I8,A1,I8,A1,I8,A4,E20.10)") &
+	  key," ",elementSymbol(isotopeTallyInt(key,1))," ",&
+	  isotopeTallyInt(key,1)," ",isotopeTallyInt(key,2)," ",&
+	  isotopeTallyInt(key,3),"    ",isotopeTallyActive(key,2)
+	End Do
+	
 !close file
     close(999)
-
-	
-	
-	
-	tempInt = 0	 !comment out next section
-	if(tempInt.eq.1)Then
-!loop through time steps
-	do i=1,1000000000
-	  if(simTime.ge.amTime)then
-        exit
-	  endif
-!store last sim time
-      simTimeLast = simTime
-!Check if sim time step exceeds activity measurement time
-      If(simTime.lt.amTime.and.(simTime+workingTimeStep).gt.amTime)Then
-	    workingTimeStep = amTime - simTime
-	  EndIf
-!check if beam ends in this time step      
-      If (beamOnOff.eq.1.and.beamDuration.gt.simTime.and.&
-	    beamDuration.lt.(simTime+workingTimeStep).and.beamTransition.eq.0) Then
-	      beamTransition = 1
-		  simTimeNext = simTime+workingTimeStep !store next simTime
-		  workingTimeStep = beamDuration - simTime !adjust time step
-	  ElseIf(beamTransition.eq.1)Then
-	    beamTransition = 0
-	    beamOnOff = 0  !switch off beam
-		workingTimeStep = simTimeNext - simTime
-		resetTimeStep = 1
-!zero out reaction rates (beam off)
-		Do j=1,size(simIsotopeKeys) 
-		  key = simIsotopeKeys(j)
-		  isotopeTallyActive(key,3) = 0.0D0
-		End Do
-	  End If
-!store sim info to file - open output file
-      open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
-!write to output file
-	  write(999,"(A70)") "----------------------------------------------------------------------" 
-	  write(999,"(A21,E20.10,A4,E20.10)") "Simulation time from ",simTime," to ",(simTime+workingTimeStep)
-	  write(999,"(A70)") "----------------------------------------------------------------------"
-!close file
-      close(999)
-!fill sim isotope slots with zeros
-	  Do j=1,size(simIsotopeKeys,1) 
-		key = simIsotopeKeys(j)
-	    decayTempTally(key) = 0.0D0
-	  End Do
-!target atoms lost due to transmutation
-	  If(beamOnOff.eq.1)Then
-	    Do j=1,size(targetReactionRatesInt,1) 
-		  zT = targetReactionRatesInt(j,1)
-	      aT = targetReactionRatesInt(j,2)
-	      mT = targetReactionRatesInt(j,3)
-		  keyT=makeIsotopeKey(zT,aT,mT)
-		  decayTempTally(keyT) = decayTempTally(keyT) + targetReactionRates(j)
-		End Do  
-	  End If
-!Product atoms lost
-	  Do j=1,size(productReactionRatesInt,1) 
-		zP = productReactionRatesInt(j,1)
-	    aP = productReactionRatesInt(j,2)
-	    mP = productReactionRatesInt(j,3)
-		w = 1.0D0*productReactionRates(j)
-        If(beamOnOff.eq.1)Then
-	      !Call tallyDecay&
-		  !  (zP,aP,mP,w,1.0D0*simTime,&
-		  !  1.0D0*(simTime+workingTimeStep),1.0D0*beamDuration)	  
-	    Else
-	  	  !Call tallyDecay&
-		  !  (zP,aP,mP,0.0D0,1.0D0*simTime,&
-		  !  1.0D0*(simTime+workingTimeStep),1.0D0*beamDuration)
-	    End If
-	  End Do
-!Apply tally changes
-      Do j=1,size(simIsotopeKeys) 
-		key = simIsotopeKeys(j)
-	    isotopeTallyActive(key,4) = isotopeTallyActive(key,4) + 1.0D0 * decayTempTally(key)
-!ensure no negative tally counts
-        If(isotopeTallyActive(key,4).lt.0.0D0)Then
-		  isotopeTallyActive(key,4) = 0.0D0
-		End If
-	  End Do
-!Calculate activity
-      Call calcTallyActivity()
-!Save activity/time to file - open output file
-      open(unit=998,file=trim(activityHistoryFile),status="old",position="append",action="write")	  
-	  write(998,"(E20.10,A1,E20.10,A1,E20.10)") simTime," ",&
-	  (simTime+workingTimeStep)," ",totalActivityAtTime
-	  close(998)
-!output tally to output file
-	  Call outputTally()
-!increment time step
-	  simTime = simTimeLast + workingTimeStep
-!reset time step
-      If (resetTimeStep.eq.1) Then
-	    workingTimeStep = timeStep
-		resetTimeStep = 0
-	  End If
-	enddo
-	End If
-	
-	
-	
-!close file
-    close(997)
-		
 		
 	
 
@@ -1100,7 +1058,7 @@ contains
 	write(999,"(A1)") " "
 	write(999,"(A140)") "-----------------------------------------------------------------&
 	---------------------------------------------------------------------------"
-	write(999,"(A15)") "Isotope Tally  "
+	write(999,"(A15,F8.4)") "Isotope Tally  ",ProgramTime()
 	write(999,"(A6,A8,A4,A4,A2,A4,A4,A18,A18,A18,A18,A18,A18,A18)") &
 	"Key   ","Element ",&
 	"Z   ","A   ","M ",& 
@@ -1134,6 +1092,104 @@ contains
 	
 	
 	
+	
+	
+	
+!------------------------------------------------------------------------!
+! SUBROUTINE finishProductionLoss                                      
+!                      
+!
+!
+!------------------------------------------------------------------------! 
+	
+  Subroutine finishProductionLoss
+!force declaration of all variables
+	Implicit None	
+!declare variables
+ 	Integer(kind=StandardInteger) :: i,j,k,key,z,a,m
+	Real(kind=DoubleReal) :: totalActivity
+	Real(kind=DoubleReal) :: totalGammaPower
+	Real(kind=DoubleReal) :: absorbedDose
+	
+!open output file
+    open(unit=999,file=trim(outputFile),status="old",position="append",action="write")	
+  !save starting isotope tally to output file
+	write(999,"(A1)") " "
+	write(999,"(A140)") "-----------------------------------------------------------------&
+	---------------------------------------------------------------------------"
+	write(999,"(A15,F8.4)") "Totals         ",ProgramTime()
+	write(999,"(A140)") "-----------------------------------------------------------------&
+	---------------------------------------------------------------------------"
+	write(999,"(A1)") " "
+!Total activity
+    totalActivity = 0.0D0
+    Do i=1,size(simIsotopeKeys)
+	  !isotopeTallyActive(i,6) decay constant
+	  !isotopeTallyActive(i,4) number of atoms
+	  key = simIsotopeKeys(i)
+	  totalActivity = totalActivity + isotopeTallyActive(key,6) *&
+        isotopeTallyActive(key,4) 
+    End Do
+!Total energy output
+    totalGammaPower = 0.0D0
+	Do i=1,size(simIsotopeKeys) 
+	  key = simIsotopeKeys(i)  
+	  z = isotopeTallyInt(key,1)
+	  a = isotopeTallyInt(key,2)
+	  m = isotopeTallyInt(key,3)
+	  If(isotopeTallyActive(key,2).gt.0)Then 	
+	    Do j=1,size(gammaLinesKey,1)
+	      If(gammaLinesKey(j,1).eq.z.and.gammaLinesKey(j,2).eq.a.and.&
+		   gammaLinesKey(j,3).eq.m)Then
+		    totalGammaPower = totalGammaPower+1.0D0*isotopeTallyActive(key,2)*&
+			 gammaLines(j,2)*gammaLines(j,1) 
+	      End If
+	    End Do
+      End If
+	End Do	  
+!Calculate absorbed dose at 1m, 80kg human, surface area 1m2	
+    absorbedDose = (totalGammaPower*elementaryCharge)/(4*pi*80)
+
+
+	write(999,"(A50,E20.10)") "Total Activity/Bq:                                ",&
+	totalActivity	
+	write(999,"(A50,E20.10)") "Total Gamma Power/eV/s:                           ",&
+	totalGammaPower
+	write(999,"(A50,E20.10)") "Total Gamma Power/Watts:                          ",&
+	(totalGammaPower*elementaryCharge)
+	write(999,"(A50,E20.10)") "Absorbed Dose*/Grays/s:                           ",&
+	absorbedDose
+	write(999,"(A50,E20.10)") "Absorbed Dose*/Grays/hr:                          ",&
+	(absorbedDose*3600)
+	write(999,"(A50,E20.10)") "Fraction of annual dosage if exposed for 1 hr:    ",&
+	     ((absorbedDose*3600)/0.001)
+	write(999,"(A1)") " "
+	write(999,"(A56,A61)") "Absorbed dose, assumes all energy absorbed, 80kg human, ",&
+	    "1m from point-target, 1m surface area exposed to irradiation."
+	write(999,"(A1)") " "
+	write(999,"(A12)") "Dose Limits:"
+	write(999,"(A35)") "employees 18+ 20 millisieverts/year"
+	write(999,"(A33)") "trainees 18+ 6 millisieverts/year"
+	write(999,"(A41)") "public and under 18s 1 millisieverts/year"
+	write(999,"(A54,E20.10)") "public and under 18s millisieverts averaged per hour: ",&
+	     (1/(365.25*24))
+	write(999,"(A50)") "Dose averaged over area of skin not exceeding 1cm2"
+	write(999,"(A55)") "Source: http://www.hse.gov.uk/radiation/ionising/doses/"
+	
+  !close output file
+	write(999,"(A1)") " "
+	write(999,"(A1)") " "
+	write(999,"(A1)") " "
+	write(999,"(A140)") "-----------------------------------------------------------------&
+	---------------------------------------------------------------------------"
+	write(999,"(A30,F8.4)") "Activity calculation complete.",ProgramTime()
+	write(999,"(A140)") "-----------------------------------------------------------------&
+	---------------------------------------------------------------------------"
+	write(999,"(A1)") " "
+	write(999,"(A1)") " "
+    close(999)	
+	
+  End Subroutine finishProductionLoss	
 	
 	
 	

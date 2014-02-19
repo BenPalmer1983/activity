@@ -23,9 +23,9 @@ Fe 100
 #beamarea
 100 mm2
 #amtime
-250000 s
+5000 s
 #timestep
-1000 s
+100 s
 #projectile
 1 1
 #targetthickness
@@ -34,7 +34,5 @@ Fe 100
 8000 kgm3
 #vpi
 60.2
-#activitytimestep
-60.0 s
 #individualisotopeactivity
 no

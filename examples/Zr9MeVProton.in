@@ -25,14 +25,10 @@ Zr 100
 #amtime
 1 D
 #timestep
-10 s
+100 s
 #projectile
 1 1
 #targetthickness
 10 mm
 #materialdensity
-8000 kgm3
-#vpi
-60.2
-#activitytimestep
-60.0 s
+6490 kgm3
