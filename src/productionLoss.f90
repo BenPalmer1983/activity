@@ -160,6 +160,10 @@ contains
 	!
 	!  1. calculate average depth of ion
 	!  2. calculate reaction rate for each target-product combination	
+!print if verbose on
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A34,F8.4)","    Calc isotope production rates ",ProgramTime()
+	End If 
 !open output file
     open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
 !write to output file
@@ -478,6 +482,10 @@ contains
 	Integer(kind=StandardInteger) :: zA,aA,mA,zB,aB,mB
 	Integer(kind=StandardInteger) :: z,a,m
 	Integer(kind=StandardInteger), Dimension( : , : ), Allocatable :: isotopeList
+!print if verbose on
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A41,F8.4)","    Prepare isotope tally for simulation ",ProgramTime()
+	End If 	
 !open output file
     open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
 !write to output file
@@ -565,12 +573,14 @@ contains
 	Real(kind=SingleReal) :: startTime, endTime, changeTime
 	Real(kind=SingleReal) :: startTimeDisplay, endTimeDisplay
 	Real(kind=DoubleReal) :: gammaActivity
+	Real(kind=DoubleReal) :: totalIsotopeActivity
  	Integer(kind=StandardInteger) :: key,keyT,keyP
  	Integer(kind=StandardInteger) :: zT,aT,mT,zP,aP,mP
  	Integer(kind=StandardInteger) :: z,a,m
 	Integer(kind=StandardInteger) :: isotopeActivityHeight, isotopeActivityWidth
 	Integer(kind=StandardInteger) :: beamOnOff, beamTransition, resetTimeStep
 	Integer(kind=StandardInteger), Dimension( : , : ), Allocatable :: isotopeActivityKey
+ 	Integer(kind=StandardInteger) :: printCounter
 	Real(kind=DoubleReal), Dimension( : , : , : ), Allocatable :: isotopeActivity
 	Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: orderedActivity
 	Real(kind=DoubleReal) :: tempAA, tempAB, tempBA, tempBB
@@ -579,6 +589,14 @@ contains
 !Set start sim time 0
 	simTime = 0
 	workingTimeStep = timeStep	
+!starting simulation - print if verbose on
+    If(verboseTerminal.eqv..true.)Then	
+	  Print"(A15)","    Sim started"
+	End If
+!print if verbose on
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A23,F8.4)","    Simulation Started ",ProgramTime()
+	End If 
 !write start of simulation to output file
       open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
 !write to output file
@@ -687,10 +705,64 @@ contains
 	  End Do	
 	End If
 !loop through time steps
+    printCounter = 0
 	do i=1,1000000000
 	  if(simTime.ge.amTime)then
         exit
 	  endif
+!print if verbose on
+      If(verboseTerminal.eqv..true.)Then
+        If(printCounter.eq.0)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 0% complete, sim time   ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+        If(simTime.ge.(0.1*amTime).and.printCounter.eq.1)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 10% complete, sim time  ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+        If(simTime.ge.(0.2*amTime).and.printCounter.eq.2)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 20% complete, sim time  ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+        If(simTime.ge.(0.3*amTime).and.printCounter.eq.3)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 30% complete, sim time  ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+        If(simTime.ge.(0.4*amTime).and.printCounter.eq.4)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 40% complete, sim time  ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+        If(simTime.ge.(0.5*amTime).and.printCounter.eq.5)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 50% complete, sim time  ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+        If(simTime.ge.(0.6*amTime).and.printCounter.eq.6)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 60% complete, sim time  ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+        If(simTime.ge.(0.7*amTime).and.printCounter.eq.7)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 70% complete, sim time  ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+        If(simTime.ge.(0.8*amTime).and.printCounter.eq.8)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 80% complete, sim time  ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+        If(simTime.ge.(0.9*amTime).and.printCounter.eq.9)Then
+	      print "(A39,F14.6,A6,F8.4)","    Simulation 90% complete, sim time  ",&
+		    simTime,"      ",ProgramTime()
+		  printCounter = printCounter + 1
+	    End If 
+	  End If 
 !store last sim time
       simTimeLast = simTime
 !Check if sim time step exceeds activity measurement time
@@ -755,6 +827,7 @@ contains
 		  decayTempTally(keyT) = decayTempTally(keyT) + w * changeTime
 		End Do  
 	  End If
+	  !print *,simTime,beamOnOff,startTime,endTime
 !Product atoms lost
 	  Do j=1,size(productReactionRatesInt,1) 
 		zP = productReactionRatesInt(j,1)
@@ -769,6 +842,10 @@ contains
 	  	  Call tallyDecay&
 		    (zP,aP,mP,0.0D0,1.0D0*startTime,&
 		    1.0D0*endTime,1.0D0*beamDuration,7)
+			
+	  	  !Call tallyDecay&
+		  !  (zP,aP,mP,0.0D0,0.0D0,&
+		  !  0.0001D0,1.0D0*beamDuration,7)
 	    End If
 	  End Do
 !Apply tally changes
@@ -793,10 +870,19 @@ contains
 	  End Do
 !Calculate activity
       Call calcTallyActivity()
+!Total activity
+      totalIsotopeActivity = 0.0D0	 
+      Do j=1,size(simIsotopeKeys) 
+	    key = simIsotopeKeys(j)
+		If(isotopeTallyActive(key,1).gt.0.and.isotopeTallyActive(key,4).gt.0)Then
+		  totalIsotopeActivity=totalIsotopeActivity+1.0D0*&
+		  isotopeTallyActive(key,6)*isotopeTallyActive(key,4)
+		End If
+	  End Do
 !Save activity/time to file - open output file
       open(unit=998,file=trim(activityHistoryFile),status="old",position="append",action="write")	  
 	  write(998,"(E20.10,A1,E20.10,A1,E20.10)") simTime," ",&
-	  (simTime+workingTimeStep)," ",totalActivityAtTime
+	  (simTime+workingTimeStep)," ",totalIsotopeActivity
 	  close(998)
 !output tally to output file (disabled)
 	  !Call outputTally()
@@ -810,10 +896,18 @@ contains
 	End Do
 !output final tally
     !write to output file
+	open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
 	write(999,"(A70)") "----------------------------------------------------------------------" 
 	write(999,"(A20,E20.10)") "Simulation tally at ",1.0D0*amTime
 	write(999,"(A70)") "----------------------------------------------------------------------"
+	close(999)
     Call outputTally()
+!If print verbose on
+	If(verboseTerminal.eqv..true.)Then
+	  print "(A39,F14.6,A6,F8.4)","    Simulation 100% complete, sim time  ",&
+		amTime,"      ",ProgramTime()
+	  printCounter = printCounter + 1
+	End If 
 	If(individualIsotopeActivity(1:1).eq."Y")Then
 !save isotope activities to file - open file
       open(unit=996,file=trim(isotopeActivityFile),status="old",position="append",action="write")	
@@ -1110,6 +1204,7 @@ contains
 	Real(kind=DoubleReal) :: totalActivity
 	Real(kind=DoubleReal) :: totalGammaPower
 	Real(kind=DoubleReal) :: absorbedDose
+	Integer(kind=StandardInteger), Dimension(1:3) :: theTime, theDate
 	
 !open output file
     open(unit=999,file=trim(outputFile),status="old",position="append",action="write")	
@@ -1189,6 +1284,13 @@ contains
 	write(999,"(A1)") " "
     close(999)	
 	
+	If(verboseTerminal.eqv..true.)Then
+	  call idate(theDate)   ! theDate(1)=day, (2)=month, (3)=year
+      call itime(theTime)   ! theDate(1)=hour, (2)=minute, (3)=second
+	  print "(A14,F8.4)","    Run time: ",ProgramTime()
+	  print "(A14,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I4.4)",&
+	  "    Ended at: ",theTime(1),":",theTime(2)," ",theDate(1),"/",theDate(2),"/",theDate(3)	
+	End If
   End Subroutine finishProductionLoss	
 	
 	

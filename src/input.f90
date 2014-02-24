@@ -51,6 +51,7 @@ Module input
   Character(len=255) :: gammaEnergiesFile
   Character(len=255) :: xsFiles
   Character(len=255) :: trajFile
+  Logical :: verboseTerminal
   
 !Privacy of functions/subroutines/variables
   Private
@@ -88,6 +89,7 @@ Module input
   Public :: projectileA  			!Variable
   Public :: activityTimeStep        !Variable
   Public :: individualIsotopeActivity !Variable
+  Public :: verboseTerminal         !Variable
   
 !  Output data arrays
 !  elements(n) = ELEMENT  
@@ -284,11 +286,15 @@ contains
 	Character(len=255) :: bufferLong
 	Character(len=1) :: storeType
 	real :: sumMaterialComposition
+	Integer(kind=StandardInteger), Dimension(1:3) :: theTime, theDate
 !open output file
     open(unit=999,file=trim(outputFile),status="old",position="append",action="write")	
 !write to output file
     write(999,"(A45,F8.4)") "Read Activity User Input File                ",ProgramTime()	 
   	
+!Set any defaults
+    verboseTerminal = .true.	
+	
  !count to allocate array rows 
     elementCounter = 0
 	storeType = "U"
@@ -414,7 +420,14 @@ contains
 		Read(1,*,IOSTAT=ios) buffera
         individualIsotopeActivity = StrToUpper(buffera(1:1))
 	  endif
-	  
+	  if(buffera(1:16).eq."#verboseterminal")then
+		Read(1,*,IOSTAT=ios) buffera
+        If(StrToUpper(buffera(1:1)).eq."Y")Then
+		  verboseTerminal = .true.
+		Else
+		  verboseTerminal = .false.
+		End If
+	  endif
 	  
 	  
 	  
@@ -448,8 +461,17 @@ contains
 	do i=1,size(materialComposition)
 	  materialComposition(i) = materialComposition(i) / sumMaterialComposition
 	enddo
-
 	
+!Print out that the program has started
+    If(verboseTerminal.eqv..true.)Then
+	  call idate(theDate)   ! theDate(1)=day, (2)=month, (3)=year
+      call itime(theTime)   ! theDate(1)=hour, (2)=minute, (3)=second
+      print *,"----------------------------------------------------------------------"
+	  print "(A47)","    Activity Code University of Birmingham 2014"
+	  print "(A16,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I4.4)",&
+	  "    Started at: ",theTime(1),":",theTime(2)," ",theDate(1),"/",theDate(2),"/",theDate(3)	
+      print *,"----------------------------------------------------------------------"
+	End If
 	
 !close output file
     close(999)
@@ -469,7 +491,10 @@ contains
     open(unit=999,file=trim(outputFile),status="old",position="append",action="write")	
 !write to output file
     write(999,"(A36,F8.4)") "Read Trajectory File                ",ProgramTime()	 
-  
+!print if verbose on
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A22,F8.4)","    Reading exyz file ",ProgramTime()
+	End If  
 !count data lines
     startCounter = 0
     dataCounter = 0
@@ -576,7 +601,10 @@ contains
 	Character(len=20) :: buffera, bufferb, bufferc, bufferd, buffere, bufferf
 	Double Precision xsDataTempA, xsDataTempB
 			
-	!xsMCData		
+!print if verbose on
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A20,F8.4)","    Reading xs Data ",ProgramTime()
+	End If 		
 			
 !count xs data		
     reactionCounter = 0

@@ -23,9 +23,9 @@ Fe 100
 #beamarea
 100 mm2
 #amtime
-5000 s
+260000 s
 #timestep
-100 s
+1000 s
 #projectile
 1 1
 #targetthickness
@@ -36,3 +36,5 @@ Fe 100
 60.2
 #individualisotopeactivity
 no
+#verboseterminal
+yes

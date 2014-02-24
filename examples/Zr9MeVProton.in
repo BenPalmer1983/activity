@@ -23,12 +23,16 @@ Zr 100
 #beamarea
 100 mm2
 #amtime
-1 D
+600 s
 #timestep
-100 s
+300 s
 #projectile
 1 1
 #targetthickness
 10 mm
 #materialdensity
 6490 kgm3
+#vpi
+60.2
+#individualisotopeactivity
+no

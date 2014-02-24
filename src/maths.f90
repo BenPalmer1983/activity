@@ -13,7 +13,9 @@ Module maths
   Implicit None
 !Make private
   Private  
-  
+
+! General Maths Functions
+  Public :: Factorial  
 ! Polynomial Related Functions
   Public :: SolvePolynomial  
   Public :: CalcPolynomial  
@@ -24,8 +26,11 @@ Module maths
   Public :: QuadraticInterpolationCalc  
   Public :: CubicInterpolationCalc  
   Public :: CalcResidualSquareSum  
+! Laplace Transforms  
+  Public :: GaverStehfestCoeffs
 ! Decay Equations    
   Public :: CalcIsotopeAmount
+  Public :: ILTCalcIsotopeAmount
   
   
 Contains
@@ -41,6 +46,10 @@ Contains
 !-------------------------------------------------------------------------  
 ! 
 ! -
+! 
+! General Maths Functions
+! - Factorial
+!
 ! 
 ! Polynomial Related Functions
 ! - SolvePolynomial
@@ -63,6 +72,9 @@ Contains
 ! Random Number Related Functions
 ! - RandomSeed
 ! - RandomDataPoints
+!
+! Laplace Transforms
+! - InverseLaplaceTransform
 ! 
 ! Decay Equations  
 ! - Decay Functions
@@ -71,19 +83,61 @@ Contains
 ! - change ArraySize1D
 ! - change ArraySize2D
 
+  
+  
+!------------------------------------------------------------------------!
+! General Maths Functions
+!------------------------------------------------------------------------! 
 
+  Function Factorial(input) RESULT (output)
+!force declaration of all variables
+	Implicit None
+!declare variables  
+    Integer(kind=StandardInteger) :: i,input
+    Integer(kind=VeryLongInteger) :: output
+!calculate factorial
+    output = 1
+	Do i=1,input
+	  output = i * output
+	End Do  
+  End Function Factorial
   
+  Function FactorialQ(input) RESULT (output)
+!force declaration of all variables
+	Implicit None
+!declare variables  
+    Integer(kind=StandardInteger) :: i,input
+    Real(kind=QuadrupoleReal) :: output
+!calculate factorial
+    output = 1.0D0
+	Do i=1,input
+	  output = i * output
+	End Do  
+  End Function FactorialQ
   
+  Function BinomialCoefficient(n,k) RESULT (c)
+!force declaration of all variables
+	Implicit None
+!declare variables  
+    Integer(kind=StandardInteger) :: c,n,k
+!calculate factorial
+    c = Factorial(n)/(Factorial(n-k)*Factorial(k))
+  End Function BinomialCoefficient
+  
+    
 !------------------------------------------------------------------------!
 ! Polynomial Related Functions
 !------------------------------------------------------------------------!     
   
   Function SolvePolynomial (coefficients, lower, upper) RESULT (output)    	
+!force declaration of all variables
+	Implicit None
+!declare variables
 	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
 	Real(kind=DoubleReal) :: upper, lower, output
 	Real(kind=DoubleReal) :: x,y,dydx
     Real(kind=DoubleReal) :: convergence, convergenceThreshold, convergenceTarget, factor, difference
-	Integer(kind=StandardInteger) i,j,k,maxLoops	
+	Integer(kind=StandardInteger) :: i,j,k,maxLoops	
 !Set values
 	convergenceTarget = 0
 	convergence = 1000
@@ -732,6 +786,22 @@ Contains
   
   
   
+  
+   
+!------------------------------------------------------------------------!
+! Decay Functions
+!------------------------------------------------------------------------!  
+    
+  !Function InverseLaplaceTransform(functionF) RESULT (isotopeChange)
+    !functionF   F(
+    
+  
+  
+  
+  
+  
+  !End Function InverseLaplaceTransform   
+  
    
   
   
@@ -762,6 +832,17 @@ Contains
 	Real(kind=DoubleReal) :: nPend,nAend,nBend,nCend
 	Real(kind=DoubleReal) :: ePA, eAB, eBC
 	Real(kind=DoubleReal) :: stableLimit
+	Real(kind=DoubleReal) :: termA, termB, termC, termD
+	
+	Integer(kind=StandardInteger) :: m,N,testILP
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+	Real(kind=DoubleReal) :: lnstore
+	Real(kind=DoubleReal) :: sumN, s, Fs, ft
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: cS
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: nO
+	Real(kind=DoubleReal) :: exactResult, iltResult, errorPercentage
+	
+	
 	
 	!decayDataArray(i,1)  !Key
 	!decayDataArray(i,2)  !No. Atoms
@@ -822,26 +903,70 @@ Contains
 	!enddo
 	
   
-	
+	testILP = 0
+	w = parentProductionRate
 !------------------
 !---1 Decay Step	
 !------------------
 	If(decaySteps.eq.1)Then
-	  w = parentProductionRate
 	  nPstart = decayDataArray(1,2)
-	  nPend = 1.0D0*(nPstart+1.0D0*dTime*w)
+	  nPend = 1.0D0*(nPstart+1.0D0*dTime*w)	  
 !force ge than 0
-	  If(nPend.lt.0)Then
-	    nPend = 0
+	  If(nPend.lt.0.0D0)Then
+	    nPend = 0.0D0
 	  End If
 !Store key and tally change data	
 	  isotopeChange(1,4) = nPend
+	  !Test start
+	  If(testILP.eq.1)Then
+!use numerical inverse laplace transform for 4 steps and more
+!Gaver Stehfest coefficients
+        N = 12
+        Allocate(coefficients(1:12))
+        coefficients(1) = -0.16666666666666D-1
+        coefficients(2) = 0.160166666666666D2
+        coefficients(3) = -0.1247D4
+        coefficients(4) = 0.27554333333333D5
+        coefficients(5) = -0.26328083333333D6
+        coefficients(6) = 0.13241387D7
+        coefficients(7) = -0.38917055333333D7
+        coefficients(8) = 0.7053286333333333D7
+        coefficients(9) = -0.80053365D7
+        coefficients(10) = 0.55528305D7
+        coefficients(11) = -0.21555072D7
+        coefficients(12) = 0.3592512D6
+!Allocate array for laplace transform equation coefficients
+        Allocate(cS(0:decaySteps))
+!starting nO
+        Allocate(nO(1:decaySteps))
+!set atom start amounts
+        Do i=1,decaySteps
+          nO(i) = isotopeChange(i,3)
+	    End Do
+!set other variables
+	    lnstore = 0.693147180559945/dTime
+	    sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+!lambda isotopeChange(i,8), !epsilon isotopeChange(i,9), !omega isotopeChange(i,10)
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0/s
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(1)*(cS(0)+nO(1))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+		exactResult = nPend
+		iltResult = (lnstore*sumN)
+        errorPercentage = (abs(iltResult-exactResult)/exactResult)*100.0D0
+	    print *,"1",exactResult,iltResult,errorPercentage		!store end atom count		
+	  End If !End Test
 	End If  
 !------------------
 !---2 Decay Steps	
 !------------------	  
 	If(decaySteps.eq.2)Then
-	  w = parentProductionRate
 !parent terms
 	  lP = log(2.0D0)/decayDataArray(1,3)	 
 	  enlP = exp(-1.0D0*dTime*lP)
@@ -854,15 +979,77 @@ Contains
 !calc nA	
 	  nAend = nAstart+ePA*((1-enlP)*nPstart+w*(dTime+(enlP-1)/lP))
 !force ge than 0
-	  If(nPend.lt.0)Then
+	  If(nPend.lt.0.0D0)Then
 	    nPend = 0.0D0
 	  End If
-	  If(nAend.lt.0)Then
+	  If(nAend.lt.0.0D0)Then
 	    nAend = 0.0D0
 	  End If
 !Store key and tally change data
 	  isotopeChange(1,4) = nPend
 	  isotopeChange(2,4) = nAend
+!Test start
+	  If(testILP.eq.1)Then
+!use numerical inverse laplace transform for 4 steps and more
+!Gaver Stehfest coefficients
+        N = 12
+        Allocate(coefficients(1:12))
+        coefficients(1) = -0.16666666666666D-1
+        coefficients(2) = 0.160166666666666D2
+        coefficients(3) = -0.1247D4
+        coefficients(4) = 0.27554333333333D5
+        coefficients(5) = -0.26328083333333D6
+        coefficients(6) = 0.13241387D7
+        coefficients(7) = -0.38917055333333D7
+        coefficients(8) = 0.7053286333333333D7
+        coefficients(9) = -0.80053365D7
+        coefficients(10) = 0.55528305D7
+        coefficients(11) = -0.21555072D7
+        coefficients(12) = 0.3592512D6
+!Allocate array for laplace transform equation coefficients
+        Allocate(cS(0:decaySteps))
+!starting nO
+        Allocate(nO(1:decaySteps))
+!set atom start amounts
+        Do i=1,decaySteps
+          nO(i) = isotopeChange(i,3)
+	    End Do
+!set other variables
+	    lnstore = 0.693147180559945/dTime
+	    sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+!lambda isotopeChange(i,8), !epsilon isotopeChange(i,9), !omega isotopeChange(i,10)
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0/(s+isotopeChange(1,8))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(1)*(cS(0)+nO(1))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+		exactResult = nPend
+		iltResult = (lnstore*sumN)
+        errorPercentage = (abs(iltResult-exactResult)/exactResult)*100.0D0
+	    print *,"1",exactResult,iltResult,errorPercentage		!store end atom count		
+		sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+!lambda isotopeChange(i,8), !epsilon isotopeChange(i,9), !omega isotopeChange(i,10)
+		  cS(0) = 1.0D0*(w/s)
+          cS(1) = 1.0D0*(isotopeChange(1,9)*isotopeChange(1,8)/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0/(s)		  
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(2)*(cS(1)*(cS(0)+nO(1))+nO(2))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+		exactResult = nAend
+		iltResult = (lnstore*sumN)
+        errorPercentage = (abs(iltResult-exactResult)/exactResult)*100.0D0
+	    print *,"2",exactResult,iltResult,errorPercentage		!store end atom count	
+	  End If !End Test
 	End If
 !------------------
 !---3 Decay Steps	
@@ -907,24 +1094,108 @@ Contains
 	  lA)*lP)+eAB*(enlP*ePA*lA*lA*(w-nPstart*lP)+enlA*lP*(ePA*(-1.0D0*&
 	  w+nPstart*lA)*lP+nAstart*lA*(lP-lA))))	
 !force ge than 0
-	  If(nPend.lt.0)Then
-	    nPend = 0
+	  If(nPend.lt.0.0D0)Then
+	    nPend = 0.0D0
 	  End If
-	  If(nAend.lt.0)Then
-	    nAend = 0
+	  If(nAend.lt.0.0D0)Then
+	    nAend = 0.0D0
 	  End If
-	  If(nBend.lt.0)Then
-	    nBend = 0
+	  If(nBend.lt.0.0D0)Then
+	    nBend = 0.0D0
 	  End If  
 !Store key and tally change data		
 	  isotopeChange(1,4) = nPend
 	  isotopeChange(2,4) = nAend
 	  isotopeChange(3,4) = nBend
+	  !Test start
+	  If(testILP.eq.1)Then
+!use numerical inverse laplace transform for 4 steps and more
+!Gaver Stehfest coefficients
+        N = 12
+        Allocate(coefficients(1:12))
+        coefficients(1) = -0.16666666666666666666D-1
+        coefficients(2) = 0.160166666666666666666D2
+        coefficients(3) = -0.1247D4
+        coefficients(4) = 0.27554333333333333333D5
+        coefficients(5) = -0.26328083333333333333D6
+        coefficients(6) = 0.13241387D7
+        coefficients(7) = -0.38917055333333333333D7
+        coefficients(8) = 0.7053286333333333333333D7
+        coefficients(9) = -0.80053365D7
+        coefficients(10) = 0.55528305D7
+        coefficients(11) = -0.21555072D7
+        coefficients(12) = 0.3592512D6
+		do i=1,12
+		print *,i,coefficients(i)
+		enddo
+		
+!Allocate array for laplace transform equation coefficients
+        Allocate(cS(0:decaySteps))
+!starting nO
+        Allocate(nO(1:decaySteps))
+!set atom start amounts
+        Do i=1,decaySteps
+          nO(i) = isotopeChange(i,3)
+	    End Do
+!set other variables
+	    lnstore = 0.693147180559945/dTime
+	    sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+!lambda isotopeChange(i,8), !epsilon isotopeChange(i,9), !omega isotopeChange(i,10)
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0/(s+isotopeChange(1,8))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(1)*(cS(0)+nO(1))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+		exactResult = nPend
+		iltResult = (lnstore*sumN)
+        errorPercentage = (abs(iltResult-exactResult)/exactResult)*100.0D0
+	    print *,"1",exactResult,iltResult,errorPercentage		!store end atom count		
+		sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+!lambda isotopeChange(i,8), !epsilon isotopeChange(i,9), !omega isotopeChange(i,10)
+		  cS(0) = 1.0D0*(w/s)
+          cS(1) = 1.0D0*(isotopeChange(1,9)*isotopeChange(1,8)/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0/(s+isotopeChange(2,8))		  
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(2)*(cS(1)*(cS(0)+nO(1))+nO(2))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+		exactResult = nAend
+		iltResult = (lnstore*sumN)
+        errorPercentage = (abs(iltResult-exactResult)/exactResult)*100.0D0
+	    print *,"2",exactResult,iltResult,errorPercentage		!store end atom count	
+		sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+!lambda isotopeChange(i,8), !epsilon isotopeChange(i,9), !omega isotopeChange(i,10)
+		  cS(0) = 1.0D0*(w/s)
+          cS(1) = 1.0D0*(isotopeChange(1,9)*isotopeChange(1,8)/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*(isotopeChange(2,9)*isotopeChange(2,8)/(s+isotopeChange(2,8)))	
+          cS(3) = 1.0D0/(s+isotopeChange(3,8))			  
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(3)*(cS(2)*(cS(1)*(cS(0)+nO(1))+nO(2))+nO(3))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+		exactResult = nBend
+		iltResult = (lnstore*sumN)
+        errorPercentage = (abs(iltResult-exactResult)/exactResult)*100.0D0
+	    print *,"3",exactResult,iltResult,errorPercentage		!store end atom count	
+	  End If !End Test
 	End If
 !------------------
-!---4 Decay Steps	
+!---4+ Decay Steps	
 !------------------	  
-	If(decaySteps.eq.4)Then
+	If(decaySteps.ge.4)Then
 	  dTime = tEnd - tStart
 	  w = parentProductionRate
 !parent terms
@@ -959,33 +1230,302 @@ Contains
 	  nAend = (1/(lA*(lA-lP)))*(nAstart*(lA*(lA-lP))+ePA*((enlA-1)*w*lP+&
 	  lA*(w-nPstart*lP*enlA+enlP*(nPstart*lP-w))))	
 !calc nB
-	  nBend = (1/(lB*(lB-lA)*(lA-lP)*(lB-lP)))*exp(-1.0D0*dTime*lB)*&
-	  (-1.0D0*nBstart*(lA-lB)*lB*(lA-lP)*(lB-lP)+eAB*((exp(dTime*(lB-lA))&
-	  -1.0D0)*nAstart*lA*lB*(lA-lP)*(lB-lP)+ePA*((exp(dTime*lB)-&
-	  exp(dTime*(lB-lA)))*w*lB*lP*(lP-lB)+lA*(-1.0D0*(-1.0D0+exp(dTime*lB)&
-	  *w*lP*lP+(-1.0D0+exp(dTime*(lB-lA)))*nPstart*lB*lP*lP+lB*lB*&
-	  ((exp(dTime*lB)-exp(dTime*lB-lP))*w-(exp(dTime*(lB-lA))-&
-	  exp(dTime*(lB-lP)))*nPstart*lP))+lA*lA*((-1.0D0+exp(dTime*lB)*&
-	  w*lP+lB*(-1.0D0*exp(dTime*lB)*w+nPstart*lP+exp(dTime*(lB-lP))*&
-	  (w-nPstart*lP))))))))
+	  !nBend = (1/(lB*(lB-lA)*(lA-lP)*(lB-lP)))*exp(-1.0D0*dTime*lB)*&
+	  !(-1.0D0*nBstart*(lA-lB)*lB*(lA-lP)*(lB-lP)+eAB*((exp(dTime*(lB-lA))&
+	  !-1.0D0)*nAstart*lA*lB*(lA-lP)*(lB-lP)+ePA*((exp(dTime*lB)-&
+	  !exp(dTime*(lB-lA)))*w*lB*lP*(lP-lB)+lA*(-1.0D0*(-1.0D0+exp(dTime*lB)&
+	  !*w*lP*lP+(-1.0D0+exp(dTime*(lB-lA)))*nPstart*lB*lP*lP+lB*lB*&
+	  !((exp(dTime*lB)-exp(dTime*lB-lP))*w-(exp(dTime*(lB-lA))-&
+	  !exp(dTime*(lB-lP)))*nPstart*lP))+lA*lA*((-1.0D0+exp(dTime*lB)*&
+	  !w*lP+lB*(-1.0D0*exp(dTime*lB)*w+nPstart*lP+exp(dTime*(lB-lP))*&
+	  !(w-nPstart*lP))))))))
+	  nBend = (1/(lA*(lA-lP)*lP))*((lA-lP)*(-1.0D0*w*eAB*ePA*lA+&
+	  (-1.0D0*w*eAB*ePA+(nBstart+eAB*(nAstart+(dTime*w+nPstart)*ePA))*&
+	  lA)*lP)+eAB*(enlP*ePA*lA*lA*(w-nPstart*lP)+enlA*lP*(ePA*(-1.0D0*&
+	  w+nPstart*lA)*lP+nAstart*lA*(lP-lA))))	
 	  
-	  
-!force ge than 0
-	  If(nPend.lt.0)Then
-	    nPend = 0
+		  
+	  termA=(1.0D0*exp(-1.0D0*dTime*(lA+lP)))/(lB*(lA-lB)*(lA-lP)*(lP-lB))
+	  termB=exp(dTime*(lA-lB+lP))*nBstart*lB*(lB-lA)*(lA-lP)*(lB-lP)
+	  termC=eAB*((exp(dTime*lP)-exp(dTime*(lA-lB+lP)))*nAstart*lA*lB*&
+	  (lA-lP)*(lB-lP)+ePA*(exp(dTime*lP)*(exp(dTime*lA)-1.0D0)*w*lB*lP*&
+	  (lP-lB)+lA*lA*(exp(dTime*(lA-lB+lP))*((exp(dTime*lB)-1)*w+&
+	  nPstart*lB)*lP-exp(dTime*lA)*lB*((-1.0D0+exp(dTime*lP))*w+&
+	  nPstart*lP))+lA*(-1.0D0*exp(dTime*(lA-lB+lP))*(-1.0D0+&
+	  exp(dTime*lB))*w*lP*lP+(exp(dTime*lP)-exp(dTime*(lA-lB+lP)))*&
+	  nPstart*lB*lP*lP+lB*lB*(exp(dTime*lA)*(-1+exp(dTime*lP))*w+&
+	  (exp(dTime*lA)-exp(dTime*lP))*nPstart*lP))))
+	  nBend = termA*(termB+termC)
+
+	  !force ge than 0
+	  If(nPend.lt.0.0D0)Then
+	    nPend = 0.0D0
 	  End If
-	  If(nAend.lt.0)Then
-	    nAend = 0
+	  If(nAend.lt.0.0D0)Then
+	    nAend = 0.0D0
 	  End If
-	  If(nBend.lt.0)Then
-	    nBend = 0
-	  End If  
+	  If(nBend.lt.0.0D0)Then
+	    nBend = 0.0D0
+	  End If    
 !Store key and tally change data		
 	  isotopeChange(1,4) = nPend
 	  isotopeChange(2,4) = nAend
 	  isotopeChange(3,4) = nBend
-	End If	
-	
+!use numerical inverse laplace transform for 4 steps and more
+!Gaver Stehfest coefficients
+      N = 12
+      Allocate(coefficients(1:12))
+      coefficients(1) = -0.16666666666666666666D-1
+      coefficients(2) = 0.160166666666666666666D2
+      coefficients(3) = -0.1247D4
+      coefficients(4) = 0.27554333333333333333D5
+      coefficients(5) = -0.26328083333333333333D6
+      coefficients(6) = 0.13241387D7
+      coefficients(7) = -0.38917055333333333333D7
+      coefficients(8) = 0.7053286333333333333333D7
+      coefficients(9) = -0.80053365D7
+      coefficients(10) = 0.55528305D7
+      coefficients(11) = -0.21555072D7
+      coefficients(12) = 0.3592512D6
+!Allocate array for laplace transform equation coefficients
+      Allocate(cS(0:decaySteps))
+!starting nO
+      Allocate(nO(1:decaySteps))
+!------------------
+!---4 Decay Steps	
+!------------------	 
+!calculate for 4 decay steps (4th isotope is stable)
+	  If(decaySteps.eq.4)Then
+!set atom start amounts
+        Do i=1,decaySteps
+          nO(i) = isotopeChange(i,3)
+		End Do
+!set other variables
+	    lnstore = 0.693147180559945/dTime
+	    sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+		  !lambda isotopeChange(i,8), !epsilon isotopeChange(i,9), !omega isotopeChange(i,10)
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = (1.0D0/s)
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)&
+		  +nO(1))+nO(2))+nO(3))+nO(4))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(4,4) = lnstore * sumN		!store end atom count		
+	  End If !End 4
+!------------------
+!---5 Decay Steps	
+!------------------	 
+!calculate for 5 decay steps (4th isotope is unstable, 5th is stable)
+	  If(decaySteps.eq.5)Then	
+	    Do i=1,decaySteps
+          nO(i) = isotopeChange(i,3)
+		End Do
+!set other variables
+	    lnstore = 0.693147180559945/dTime
+!4th isotope Unstable
+	    sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+		  !cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+		  !Do i=1,4
+          !  cS(i) = 1.0D0*((isotopeChange(i,9)*isotopeChange(i,8))/(s+isotopeChange(i,8)))
+          !End Do
+          !cS(5) = (1.0D0/s)
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = (1.0D0/(s+isotopeChange(4,8)))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)&
+		  +nO(1))+nO(2))+nO(3))+nO(4))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(4,4) = lnstore * sumN		!store end atom count		
+!5th isotope Stable
+		sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = 1.0D0*((isotopeChange(4,9)*isotopeChange(4,8))/(s+isotopeChange(4,8)))
+          cS(5) = (1.0D0/s)
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(5)*(cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)&
+		  +nO(1))+nO(2))+nO(3))+nO(4))+nO(5))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(5,4) = lnstore * sumN		!store end atom count	
+	  End If !End 5
+!------------------
+!---6 Decay Steps	
+!------------------	 
+!calculate for 6 decay steps (4th isotope is unstable, 5th is unstable, 6th is stable)
+	  If(decaySteps.eq.6)Then	
+	    Do i=1,decaySteps
+          nO(i) = isotopeChange(i,3)
+		End Do
+!set other variables
+	    lnstore = 0.693147180559945/dTime
+!4th isotope Unstable
+	    sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients		  
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = (1.0D0/(s+isotopeChange(4,8)))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)+nO(1))+nO(2))+nO(3))+nO(4))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(4,4) = lnstore * sumN		!store end atom count		
+!5th isotope Unstable
+		sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = 1.0D0*((isotopeChange(4,9)*isotopeChange(4,8))/(s+isotopeChange(4,8)))
+          cS(5) = (1.0D0/(s+isotopeChange(5,8)))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(5)*(cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)&
+		  +nO(1))+nO(2))+nO(3))+nO(4))+nO(5))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(5,4) = lnstore * sumN		!store end atom count	
+!6th isotope Stable
+		sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients		  
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = 1.0D0*((isotopeChange(4,9)*isotopeChange(4,8))/(s+isotopeChange(4,8)))
+          cS(5) = 1.0D0*((isotopeChange(5,9)*isotopeChange(5,8))/(s+isotopeChange(5,8)))
+          cS(6) = (1.0D0/(s))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(6)*(cS(5)*(cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)&
+		  +nO(1))+nO(2))+nO(3))+nO(4))+nO(5))+nO(6))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(6,4) = lnstore * sumN		!store end atom count	
+	  End If !End 6
+!------------------
+!---7 Decay Steps	
+!------------------	 
+!calculate for 7 decay steps (4th isotope is unstable, 5th is unstable, 6th is stable)
+	  If(decaySteps.eq.7)Then	
+	    Do i=1,decaySteps
+          nO(i) = isotopeChange(i,3)
+		End Do
+!set other variables
+	    lnstore = 0.693147180559945/dTime
+!4th isotope Unstable
+	    sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = (1.0D0/(s+isotopeChange(4,8)))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)+nO(1))+nO(2))+nO(3))+nO(4))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(4,4) = lnstore * sumN		!store end atom count		
+!5th isotope Unstable
+		sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = 1.0D0*((isotopeChange(4,9)*isotopeChange(4,8))/(s+isotopeChange(4,8)))
+          cS(5) = (1.0D0/(s+isotopeChange(5,8)))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(5)*(cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)&
+		  +nO(1))+nO(2))+nO(3))+nO(4))+nO(5))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(5,4) = lnstore * sumN		!store end atom count	
+!6th isotope Stable
+		sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = 1.0D0*((isotopeChange(4,9)*isotopeChange(4,8))/(s+isotopeChange(4,8)))
+          cS(5) = 1.0D0*((isotopeChange(5,9)*isotopeChange(5,8))/(s+isotopeChange(5,8)))
+          cS(6) = (1.0D0/(s+isotopeChange(6,8)))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(6)*(cS(5)*(cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)&
+		  +nO(1))+nO(2))+nO(3))+nO(4))+nO(5))+nO(6))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(6,4) = lnstore * sumN		!store end atom count	
+!7th isotope Stable
+		sumN = 0.0D0
+	    Do m=1,N
+	      s = lnstore*m
+!Store laplace transform equation coefficients
+		  cS(0) = 1.0D0*(isotopeChange(1,10)/s)
+          cS(1) = 1.0D0*((isotopeChange(1,9)*isotopeChange(1,8))/(s+isotopeChange(1,8)))
+          cS(2) = 1.0D0*((isotopeChange(2,9)*isotopeChange(2,8))/(s+isotopeChange(2,8)))
+          cS(3) = 1.0D0*((isotopeChange(3,9)*isotopeChange(3,8))/(s+isotopeChange(3,8)))
+          cS(4) = 1.0D0*((isotopeChange(4,9)*isotopeChange(4,8))/(s+isotopeChange(4,8)))
+          cS(5) = 1.0D0*((isotopeChange(5,9)*isotopeChange(5,8))/(s+isotopeChange(5,8)))
+          cS(6) = 1.0D0*((isotopeChange(6,9)*isotopeChange(6,8))/(s+isotopeChange(6,8)))
+          cS(7) = (1.0D0/(s))
+!--------------------------------------------------------------------------------------------------- 
+	      Fs = 1.0D0*cS(7)*(cS(6)*(cS(5)*(cS(4)*(cS(3)*(cS(2)*(cS(1)*(cS(0)&
+		  +nO(1))+nO(2))+nO(3))+nO(4))+nO(5))+nO(6))+nO(7))
+!---------------------------------------------------------------------------------------------------
+          sumN = sumN + coefficients(m) * Fs 
+        End Do	
+	    isotopeChange(7,4) = lnstore * sumN		!store end atom count
+	  End If !End 7
+	End If		
+!force ge than 0
+    Do i=1,size(isotopeChange,1)
+	  If(isotopeChange(i,4).lt.0.0D0)Then
+	    isotopeChange(i,4) = 0.0D0
+	  End If
+	End Do
 	
 !Store changes in isotope amounts
 	Do i=1,size(isotopeChange,1)
@@ -1017,8 +1557,63 @@ Contains
   
   
   
+  Function ILTCalcIsotopeAmount(a) RESULT (b)
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: i,j,k,m,N,NHalf,kMin,kMax, signVal
+	Real(kind=DoubleReal) :: coefficientSum, sumN
+	Real(kind=DoubleReal) :: a, b
+	Real(kind=DoubleReal) :: s, t, Fs, ft, lnstore
+	Real(kind=DoubleReal) :: w, lambdaA, lambdaB, nAStart, nBStart
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients	
+  End Function ILTCalcIsotopeAmount  
   
-   
+  
+  
+  
+!------------------------------------------------------------------------!
+! Laplace Transform Functions
+!------------------------------------------------------------------------! 
+  
+  Function GaverStehfestCoeffs(N) RESULT (coefficients)
+!force declaration of all variables
+	Implicit None
+!declare variables
+    Integer(kind=StandardInteger) :: k,m,N,NHalf,kMin,kMax,signVal
+	Real(kind=DoubleReal) :: coefficientSum
+	Integer(kind=VeryLongInteger)factA, factB, factC, factD, factE, factF
+	!Real(kind=QuadrupoleReal) :: 
+	Real(kind=DoubleReal), Dimension( : ), Allocatable :: coefficients
+	!Integer(kind=VeryLongInteger)
+!set variables
+    NHalf = N/2
+!Allocate coefficient array
+    Allocate(coefficients(1:N))
+	
+	!Loop through coefficients
+	Do m=1,N
+	  coefficients(m) = 0.0D0
+	  kMin = floor(1.0D0*(m+1)/2)
+	  kMax = min(m,NHalf)
+	  signVal = (-1.0D0)**(m+NHalf)
+	  Do k=kMin,kMax
+	    factA = Factorial(2*k)
+	    factB = Factorial(NHalf-k)
+	    factC = Factorial(k)
+	    factD = Factorial(k-1)
+	    factE = Factorial(m-k)
+	    factF = Factorial(2*k-m)
+	    coefficients(m)=coefficients(m)+1.0D0*((k**NHalf)*factA)/&
+		  (factB*factC*factD*factE*factF)
+	  End Do
+	  coefficients(m)=signVal*coefficients(m)
+	  print *,coefficients(m)
+	End Do
+  
+  End Function GaverStehfestCoeffs  
+  
+  
   
   
 !------------------------------------------------------------------------!

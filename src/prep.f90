@@ -67,14 +67,18 @@ contains
     
 !force declaration of all variables
 	Implicit None
-
 !Internal subroutine variables
-	Integer :: i, j, k, ionCount, dataPointCount, totalIons
+	Integer :: i, j, k, ionCount, dataPointCount, totalIons, percentPrint
 	Integer, Dimension( : ), Allocatable :: ionDataCount
 	Real, Dimension( : , : ), Allocatable :: specificIonExyz	
 	double precision, Dimension( : , : ), Allocatable :: specificIonExyzD
 	double precision, Dimension( : ), Allocatable :: polyCoefficients
-	integer :: order
+	Integer(kind=StandardInteger) :: order
+!print if verbose on
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A22,F8.4)","    Fitting exyz data ",ProgramTime()
+	  print "(A22,I8)","    Total data points ",size(exyzKey,1)
+	End If 
 !number of ions
 	ionCount = 0
 	do i=1,size(exyzKey)
@@ -117,7 +121,27 @@ contains
 	  fitCoefficients(j) = 0
 	enddo
 	ionCount = 0
+	percentPrint = 0
 	do i=1,size(exyzKey)
+!print if verbose on
+      If(verboseTerminal.eqv..true.)Then
+	    If(ionCount.eq.0.and.percentPrint.eq.0)Then
+		  print "(A19,I8,A5,F8.4)","    0% exyz fit of ",totalIons," ions",ProgramTime()
+		  percentPrint = percentPrint + 1
+		End If
+	    If(ionCount.ge.(0.25*totalIons).and.percentPrint.eq.1)Then
+		  print "(A20,I8,A5,F8.4)","    25% exyz fit of ",totalIons," ions",ProgramTime()
+		  percentPrint = percentPrint + 1
+		End If
+	    If(ionCount.ge.(0.50*totalIons).and.percentPrint.eq.2)Then
+		  print "(A20,I8,A5,F8.4)","    50% exyz fit of ",totalIons," ions",ProgramTime()
+		  percentPrint = percentPrint + 1
+		End If
+	    If(ionCount.ge.(0.75*totalIons).and.percentPrint.eq.3)Then
+		  print "(A20,I8,A5,F8.4)","    75% exyz fit of ",totalIons," ions",ProgramTime()
+		  percentPrint = percentPrint + 1
+		End If
+	  End If
 	  if(i.eq.1)then
 	    ionCount = ionCount + 1 !set ion
 	    dataPointCount = 0 !set counter
@@ -157,21 +181,26 @@ contains
 		enddo  
 	  endif	
 	enddo
-	  
+!print if verbose on
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A21,I8,A5,F8.4)","    100% exyz fit of ",totalIons," ions",ProgramTime()
+	End If
+
   End Subroutine fitExyz
   
   
   
   
   Subroutine materialIsotopes()
-
 !force declaration of all variables
 	Implicit None
-
 !Internal subroutine variables
     Integer :: i, j, k
 	Real :: averageAtomicMass, denominator
-
+!print if verbose on
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A30,F8.4)","    Calc isotopic composition ",ProgramTime()
+	End If 
 	k = 0
 	denominator = 0.0
 	!loop through elements in material
@@ -259,6 +288,10 @@ contains
 	Integer(kind=StandardInteger) :: key, startingIsotopeCount
 	Real :: tempReal
 	Double Precision :: tempDouble
+!print if verbose on
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A28,F8.4)","    Prepare isotope tallies ",ProgramTime()
+	End If 
 !open output file
     open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
 !write to output file
