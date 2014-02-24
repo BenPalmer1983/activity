@@ -858,7 +858,7 @@ Contains
 	Do i=1,size(decayDataArray,1)
 	  stableLimit = (log(2.0D0)/decayDataArray(i,3))*dTime	  
 	  decayStepCounter = decayStepCounter + 1
-	  If(stableLimit.lt.1.0D-9)Then
+	  If(stableLimit.lt.1.0D-10)Then
 	    decayDataArray(i,3) = -1		!set as stable
 	    Exit
 	  End If

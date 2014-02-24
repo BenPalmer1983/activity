@@ -1,5 +1,5 @@
 #elements
-Fe 100
+Zr 100
 #isotopes
 "data/isotopes.txt"
 #decaymodes
@@ -9,34 +9,30 @@ Fe 100
 #xsfiles
 "data/xs"
 #trajfile
-"examples/Fe36MeV.exyz"
+"examples/Zr9MeV.exyz"
 #polyfitorder
 3
 #integrationgranularity
 10
 #beamflux
-0.5 uA
+1 uA
 #beamenergy
-36 MeV
+9 MeV
 #beamduration
 300 s
 #beamarea
 100 mm2
 #amtime
-260000 s
+60000 s
 #timestep
-1000 s
+100 s
 #projectile
 1 1
 #targetthickness
-0.5 mm
+10 mm
 #materialdensity
-8000 kgm3
+6490 kgm3
 #vpi
 60.2
 #individualisotopeactivity
-yes
-#verboseterminal
-yes
-#targetdpa
-0.01
+no

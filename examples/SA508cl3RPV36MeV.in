@@ -1,5 +1,16 @@
 #elements
-Fe 100
+C 0.017
+Si 0.10
+Mn 1.35
+P 0.006
+S 0.002
+Cr 0.16
+Ni 0.82
+Mo 0.50
+V 0.004
+Cu 0.03
+N 0.006
+Fe 96.852
 #isotopes
 "data/isotopes.txt"
 #decaymodes

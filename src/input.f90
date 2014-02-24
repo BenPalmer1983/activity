@@ -52,6 +52,7 @@ Module input
   Character(len=255) :: xsFiles
   Character(len=255) :: trajFile
   Logical :: verboseTerminal
+  Real(kind=DoubleReal) :: targetDPA
   
 !Privacy of functions/subroutines/variables
   Private
@@ -90,6 +91,7 @@ Module input
   Public :: activityTimeStep        !Variable
   Public :: individualIsotopeActivity !Variable
   Public :: verboseTerminal         !Variable
+  Public :: targetDPA               !Variable
   
 !  Output data arrays
 !  elements(n) = ELEMENT  
@@ -294,6 +296,8 @@ contains
   	
 !Set any defaults
     verboseTerminal = .true.	
+	vpi = 0.0D0
+	targetDPA = 0.0D0
 	
  !count to allocate array rows 
     elementCounter = 0
@@ -428,8 +432,10 @@ contains
 		  verboseTerminal = .false.
 		End If
 	  endif
-	  
-	  
+	  if(buffera(1:10).eq."#targetdpa")then
+	    Read(1,*,IOSTAT=ios) buffera
+		read(buffera,*) targetDPA
+	  endif
 	  
 	  
 !Read in elements

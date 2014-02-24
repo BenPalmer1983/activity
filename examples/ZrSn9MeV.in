@@ -1,5 +1,6 @@
 #elements
-Zr 100
+Zr 98.5
+Sn 1.5
 #isotopes
 "data/isotopes.txt"
 #decaymodes
@@ -9,7 +10,7 @@ Zr 100
 #xsfiles
 "data/xs"
 #trajfile
-"examples/Zr9MeVProton.exyz"
+"examples/Zr9MeV.exyz"
 #polyfitorder
 3
 #integrationgranularity
@@ -23,16 +24,14 @@ Zr 100
 #beamarea
 100 mm2
 #amtime
-600 s
+1 D
 #timestep
-300 s
+100 s
 #projectile
 1 1
 #targetthickness
 10 mm
 #materialdensity
-6490 kgm3
+8000 kgm3
 #vpi
 60.2
-#individualisotopeactivity
-no

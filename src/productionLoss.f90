@@ -150,6 +150,7 @@ contains
 	Real(kind=DoubleReal) :: maxDepth, trajectoryDepth, energyAtDepth, segmentLength, xs
 	Real(kind=DoubleReal) :: reactionProbability, affectedDepth,tempDoubleA,tempDoubleB
 	Real(kind=DoubleReal) :: averagedXS
+	Real(kind=DoubleReal) :: DPA
 	Character(len=255) :: fittingPolynomial	
 	Character(len=255) :: tempChar	
 	Integer(kind=StandardInteger), Dimension( : , :), Allocatable :: targetReactionRatesIntTemp
@@ -259,6 +260,32 @@ contains
 	  affectedDepth * 1.0D-10 * contentFactor
 	  numberDensityArray(i) = 1.0D0 * numberDensity * contentFactor
 	enddo	
+!DPA
+    If(vpi.gt.0.0D0)Then
+	  DPA = 1.0D0*(vpi*ionsPerSecond*beamDuration)/(volumeAffected*numberDensity)
+	End If
+!change beamDuration and amtime to meet target DPA
+    If(vpi.gt.0.0D0.and.targetDPA.gt.0.0D0)Then
+	  beamDuration = 1.0D0*beamDuration*(targetDPA/DPA)
+	  If(amTime.lt.beamDuration)Then
+	    amTime = beamDuration
+	  End If
+	  !print if verbose on
+      If(verboseTerminal.eqv..true.)Then
+	    print "(A18,F20.10,A6,F8.4)","    Target DPA    ",targetDPA,"      ",ProgramTime()
+	    print "(A18,F20.10,A6,F8.4)","    Beam Duration ",beamDuration,"      ",ProgramTime()
+	  End If
+!recalculate DPA
+	  DPA = 1.0D0*(vpi*ionsPerSecond*beamDuration)/(volumeAffected*numberDensity) 
+	End If
+	!DPA
+    If(vpi.gt.0.0D0)Then
+!print if verbose on
+      If(verboseTerminal.eqv..true.)Then
+	    print "(A8,F20.10,A6,F8.4)","    VPI ",vpi,"      ",ProgramTime()
+	    print "(A8,F20.10,A6,F8.4)","    DPA ",DPA,"      ",ProgramTime()
+	  End If 
+	End If
 !output variables to file	
     write(999,"(A1)") " "
     write(999,"(A70)") "----------------------------------------------------------------------"
@@ -269,7 +296,19 @@ contains
 	write(999,"(A30,E20.10)") "Affected depth/ang:           ",(affectedDepth)
 	write(999,"(A30,E20.10)") "Affected volume/m3:           ",volumeAffected
 	write(999,"(A30,E20.10)") "Number Density:               ",numberDensity
-    write(999,"(A1)") " "
+	If(vpi.gt.0)Then
+	  write(999,"(A30,E20.10)") "VPI:                          ",vpi
+	  write(999,"(A30,E20.10)") "DPA:                          ",DPA
+	End If
+	If(vpi.gt.0.0D0.and.targetDPA.gt.0.0D0)Then
+      write(999,"(A1)") " "
+      write(999,"(A70)") "----------------------------------------------------------------------"
+      write(999,"(A20)") "Adjusted variables"
+      write(999,"(A70)") "----------------------------------------------------------------------"
+      write(999,"(A30)") "Beam Duration:                ",beamDuration
+      write(999,"(A30)") "Activity Measurement Time:    ",amTime
+      write(999,"(A1)") " "
+	End If
 !output reaction rates to output data file
     write(999,"(A1)") " "
     write(999,"(A70)") "----------------------------------------------------------------------"
@@ -862,10 +901,12 @@ contains
 		End If
 !store individual isotope activity tally
         If(individualIsotopeActivity(1:1).eq."Y")Then
-          isotopeActivityKey(i,j) = key
-		  isotopeActivity(i,j,1) = endTimeDisplay 
-		  isotopeActivity(i,j,2) = isotopeTallyActive(key,4) 
-		  isotopeActivity(i,j,3) = isotopeTallyActive(key,6)*isotopeTallyActive(key,4) 
+		  If(isotopeTallyActive(key,1).gt.0.and.isotopeTallyActive(key,4).gt.0)Then
+            isotopeActivityKey(i,j) = key
+		    isotopeActivity(i,j,1) = endTimeDisplay 
+		    isotopeActivity(i,j,2) = isotopeTallyActive(key,4) 
+		    isotopeActivity(i,j,3) = isotopeTallyActive(key,6)*isotopeTallyActive(key,4) 
+		  End If
 		End If
 	  End Do
 !Calculate activity
