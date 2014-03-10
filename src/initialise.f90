@@ -77,13 +77,15 @@ contains
 	write(998,"(A1)") " "
 	write(998,"(A6,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I4.4)") &
 	"Date: ",theTime(1),":",theTime(2)," ",theDate(1),"/",theDate(2),"/",theDate(3)	
+	write(998,"(A1)") " "	
+	write(998,"(A21,A25)") "Time/s               ","Total isotope activity/Bq"	
 	close(998)
 	
 	!Create in-out file
 	inOutFile = trim(currentWorkingDirectory)//"/"//"inOutFile.dat"
 	open(unit=997,file=trim(inOutFile))
 	write(997,"(A38)") "======================================"
-	write(997,"(A38)") "ACTIVITY HISTORY FILE"
+	write(997,"(A38)") "In-Out FILE"
 	write(997,"(A38)") "======================================"
 	write(997,"(A1)") " "
 	write(997,"(A6,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I4.4)") &

@@ -1,0 +1,63 @@
+#elements
+Zr 97.74855
+Sn 1.70000
+Fe 0.20000
+Cr 0.15000
+Ni 0.08000
+Al 0.00750
+B 0.00005
+C 0.02700
+Cd 0.00005
+Co 0.00200
+Cu 0.00500
+H 0.00250
+Hf 0.02000
+Pb 0.01300
+Mg 0.00200
+Mn 0.00500
+N 0.00800
+Si 0.01200
+Na 0.00200
+Ti 0.00500
+W 0.01000
+U 0.00035
+#isotopes
+"data/isotopes.txt"
+#decaymodes
+"data/decaymodes.txt"
+#gammaenergies
+"data/gammaenergies.txt"
+#xsfiles
+"data/xs"
+#trajfile
+"examples/Zr3MeV.exyz"
+#polyfitorder
+3
+#integrationgranularity
+10
+#beamflux
+0.5 uA
+#beamenergy
+3 MeV
+#beamduration
+600 s
+#beamarea
+42.5 mm2
+#amtime
+605400 s
+#timestep
+3600 s
+#projectile
+1 1
+#targetthickness
+1.0 mm
+#materialdensity
+6294.66 kgm3
+#vpi
+60.2
+#individualisotopeactivity
+yes
+#verboseterminal
+yes
+#targetdpa
+0.00

@@ -11,7 +11,7 @@ Fe 100
 #trajfile
 "examples/Fe36MeV.exyz"
 #polyfitorder
-3
+5
 #integrationgranularity
 10
 #beamflux
@@ -39,4 +39,4 @@ yes
 #verboseterminal
 yes
 #targetdpa
-0.01
+0.0

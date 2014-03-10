@@ -10,7 +10,7 @@ Sn 1.5
 #xsfiles
 "data/xs"
 #trajfile
-"examples/Zr9MeV.exyz"
+"examples/Zr3MeV.exyz"
 #polyfitorder
 3
 #integrationgranularity

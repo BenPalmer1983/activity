@@ -329,8 +329,8 @@ contains
 	  isotopeTallyInt(key,3) = j	
 	End Do
 !Add other isotopes
-    do i=1,size(isotopesChar)
-	  do j=0,1
+    Do i=1,size(isotopesChar)
+	  Do j=0,1
 	    !key = 590 * isotopesInt(i,1) + 290 * j + isotopesInt(i,2)
 		key = makeIsotopeKey(isotopesInt(i,1),isotopesInt(i,2),j)
 	    isotopeTallyChar(key) = elementSymbol(isotopesInt(i,1))
@@ -351,17 +351,18 @@ contains
 	enddo
 !Set the composition amounts
 	startingIsotopeCount = 0
-    do i=1,size(materialIsotopesChar)
-	  !key = 590 * materialIsotopesInt(i,1) + 290 * 0 + materialIsotopesInt(i,2)
+    Do i=1,size(materialIsotopesChar)
 	  key = makeIsotopeKey(materialIsotopesInt(i,1),materialIsotopesInt(i,2),0)
 !atoms in 1m3	  
-	  isotopeTallyActive(key,4) = 1.0D0 * materialIsotopesReal(i,3)&
-        * materialDensity * 1.0D3 * (1.0D0 / materialIsotopesReal(i,1))&
-        * avogadrosConstant
+      If(key.gt.0.and.key.le.70800)Then
+	    isotopeTallyActive(key,4) = 1.0D0 * materialIsotopesReal(i,3)&
+          * materialDensity * 1.0D3 * (1.0D0 / materialIsotopesReal(i,1))&
+          * avogadrosConstant
 !Mark isotope as in simulation
-	  isotopeTallyInt(key,5) = 1
-	  startingIsotopeCount = startingIsotopeCount + 1
-	enddo	
+	    isotopeTallyInt(key,5) = 1
+	    startingIsotopeCount = startingIsotopeCount + 1
+	  End If	
+	End Do	
 !save starting isotope tally to output file
 	write(999,"(A1)") " "	
 	write(999,"(A140)") "-----------------------------------------------------------------&
@@ -376,8 +377,6 @@ contains
 	write(999,"(A140)") "-----------------------------------------------------------------&
 	---------------------------------------------------------------------------"
 	Do i=1,size(isotopeTallyChar)
-      !if(isotopeTallyChar(i).ne."ZZ".and.isotopeTallyInt(i,5).eq.1)then
-      !if(isotopeTallyChar(i).ne."ZZ")then
 	  If(isotopeTallyInt(i,5).eq.1)Then
 	    write(999,"(A7,A1,&
 		I3.3,A1,I3.3,A1,I1.1,A1,&
@@ -418,36 +417,16 @@ contains
 	write(999,"(A1)") " "
 	write(999,"(A40,F8.4)") "Add Product Isotopes to Tally           ",ProgramTime()
 !output tally to file	
-    !write(999,"(A1)") " "
-    !write(999,"(A70)") "----------------------------------------------------------------------"
-    !write(999,"(A28)") "Material Isotopes"
-	!write(999,"(A6,F8.4)") "Time: ",ProgramTime()
-    !write(999,"(A70)") "----------------------------------------------------------------------"
-	!Do i=1,size(isotopeTallyChar)
-    !  If(isotopeTallyInt(i,5).eq.1)Then
-	!	write(999,"(I8)") i
-	!  End If
-	!End Do
-	!write(999,"(A1)") " "
 !Add product isotopes to tally
     Do i=1,size(xsKey,1)		
 !Get key and data for cross section	
       !print *,xsKey(i,1),xsKey(i,2),xsKey(i,3),"   ",xsKey(i,4),xsKey(i,5),xsKey(i,6)
 	  keyP = makeIsotopeKey(xsKey(i,4),xsKey(i,5),xsKey(i,6))
-	  isotopeTallyInt(keyP,5) = 1
+	  If(keyP.gt.0.and.keyP.le.70800)Then
+	    isotopeTallyInt(keyP,5) = 1
+	  End If
     End Do	
 !output tally to file	
-    !write(999,"(A1)") " "
-    !write(999,"(A70)") "----------------------------------------------------------------------"
-    !write(999,"(A28)") "Material Isotopes + Products"
-	!write(999,"(A6,F8.4)") "Time: ",ProgramTime()
-    !write(999,"(A70)") "----------------------------------------------------------------------"
-	!Do i=1,size(isotopeTallyChar)
-    !  If(isotopeTallyInt(i,5).eq.1)Then
-	!	write(999,"(I8)") i
-	!print *,isotopeTallyInt(i,1),isotopeTallyInt(i,2),isotopeTallyInt(i,3)
-	!  End If
-	!End Do
     write(999,"(A1)") " "
 !close output file
     close(999) 
@@ -483,21 +462,12 @@ contains
 		  a = isotopeArray(j,2)
 		  m = isotopeArray(j,3)
 		  key = makeIsotopeKey(z,a,m)
-		  isotopeTallyInt(key,5) = 1
+		  If(key.gt.0.and.key.le.70800)Then
+		    isotopeTallyInt(key,5) = 1
+		  End If	
 		End Do
 	  End If
     End Do		
-!output tally to file	
-    !write(999,"(A1)") " "
-    !write(999,"(A70)") "----------------------------------------------------------------------"
-    !write(999,"(A59)") "Material Isotopes + Products/Decay Parents + Decay Children"
-	!write(999,"(A6,F8.4)") "Time: ",ProgramTime()
-    !write(999,"(A70)") "----------------------------------------------------------------------"
-	!Do i=1,size(isotopeTallyChar)
-    !  If(isotopeTallyInt(i,5).eq.1)Then
-	!	write(999,"(I8)") i
-	!  End If
-	!End Do
     write(999,"(A1)") " "
 !close output file
     close(999)   
@@ -532,9 +502,11 @@ contains
 !store sim isotope keys
     Do i=1,size(isotopeTallyChar,1)
       If(isotopeTallyInt(i,5).eq.1)Then  
-	    j = j + 1
         key = makeIsotopeKey(isotopeTallyInt(i,1),isotopeTallyInt(i,2),isotopeTallyInt(i,3)) 
-        simIsotopeKeys(j) = key		
+		If(key.gt.0.and.key.le.70800)Then
+	      j = j + 1
+          simIsotopeKeys(j) = key		
+		End If
 	  End If
     End Do	  
   
@@ -575,15 +547,17 @@ contains
     j = 0
 	do i=1,size(decayInt,1)
 	  key=makeIsotopeKey(decayInt(i,2),decayInt(i,1),decayInt(i,3))	
-      if(isotopeTallyInt(key,5).eq.1.and.isotopeTallyActive(key,1).ge.0)then		
-		j = j + 1
-		Do k=1,6
-		  decayIntReduced(j,k) = decayInt(i,k) 
-		End Do
-		Do k=1,2
-		  decayDoubleReduced(j,k) = decayDouble(i,k) 
-		End Do
-	  endif
+	  If(key.gt.0.and.key.le.70800)Then
+        If(isotopeTallyInt(key,5).eq.1.and.isotopeTallyActive(key,1).ge.0)then		
+		  j = j + 1
+		  Do k=1,6
+		    decayIntReduced(j,k) = decayInt(i,k) 
+		  End Do
+		  Do k=1,2
+		    decayDoubleReduced(j,k) = decayDouble(i,k) 
+		  End Do
+		End If
+	  End If
 	enddo
 !write to file
     Do i=1,size(decayIntReduced,1)

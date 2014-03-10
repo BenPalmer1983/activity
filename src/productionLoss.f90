@@ -137,7 +137,7 @@ contains
 	!force declaration of all variables
 	Implicit None	
     !declare variables
-	Integer(kind=StandardInteger) :: i,j,k,z,a,m,key
+	Integer(kind=StandardInteger) :: i,j,k,n,z,a,m,key
 	Integer(kind=StandardInteger) :: lowerX, upperX
 	Integer(kind=StandardInteger) :: zA,aA,mA,zB,aB,mB
 	Integer(kind=StandardInteger) :: store, storeCounter
@@ -151,6 +151,7 @@ contains
 	Real(kind=DoubleReal) :: reactionProbability, affectedDepth,tempDoubleA,tempDoubleB
 	Real(kind=DoubleReal) :: averagedXS
 	Real(kind=DoubleReal) :: DPA
+	Real(kind=DoubleReal) :: reactionRateTemp
 	Character(len=255) :: fittingPolynomial	
 	Character(len=255) :: tempChar	
 	Integer(kind=StandardInteger), Dimension( : , :), Allocatable :: targetReactionRatesIntTemp
@@ -178,12 +179,23 @@ contains
 !solve equation = 0 for the trajectory
 	x = 0
 	y = 0
+	If(verboseTerminal.eqv..true.)Then
+	  print "(A26,F8.4)","    Trajectory equation:  ",ProgramTime()
+	  print "(A12)","    E(r) = "
+	  Do i=0,size(fitCoefficients)-1
+	    If(i.eq.0)Then
+		  print "(A4,E20.10,A2,I2)","    ",fitCoefficients(i),"r^",i
+		Else
+		  print "(A4,E20.10,A3,I2)","    ",fitCoefficients(i),"+r^",i
+		End If
+	  End Do
+	End If 
 	fittingPolynomial = "y = "
 	write(999,"(A25)") "Trajectory fit equation: "
-	do i=0,size(fitCoefficients)-1
+	Do i=0,size(fitCoefficients)-1
 	  y = y + x**(i) * fitCoefficients(i)
 	  write(999,"(I8,E20.10)") i,fitCoefficients(i)
-	enddo
+	End Do
 !find upper-lower boundaries
 	do while(y.gt.0)
 	  lowerX = x
@@ -205,6 +217,10 @@ contains
 !set global variable
     affectedMaterialDepth = affectedDepth
 	write(999,"(A25,E20.10)") "Affected material depth: ",affectedMaterialDepth
+	If(verboseTerminal.eqv..true.)Then
+	  print "(A4,A25,E20.10,F8.4)","    ","Affected material depth: ",&
+	    affectedMaterialDepth,ProgramTime()
+	End If
 !ions per second
 	ionsPerSecond = (beamFlux * 1.0D-6) / elementaryCharge	!convert flux in uA to ions per second
 !volume of material affected by beam
@@ -213,53 +229,60 @@ contains
 	totalSimulationAtoms = 0.0D0
 	Do i=1,size(simIsotopeKeys) 
 	  key = simIsotopeKeys(i)
-	  totalSimulationAtoms = totalSimulationAtoms + isotopeTallyActive(key,4)
+	  If(key.gt.0.and.key.le.70800)Then
+	    totalSimulationAtoms = totalSimulationAtoms + isotopeTallyActive(key,4)
+	  End If	
 	End Do
+	If(verboseTerminal.eqv..true.)Then
+	  print "(A4,A18,E20.10,F8.4)","    ","Total atom tally: ",&
+	    totalSimulationAtoms,ProgramTime()
+	End If
 	
 !Loop over target-product combinations	
-	do i=1,size(xsKey,1)		
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A4,A24,F8.4)","    ","Calculate reaction rates",ProgramTime()
+	End If
+    i = 0
+	do n=1,size(xsKey,1)		
 !Get key and data for cross section	
-	  z = xsKey(i,1)
-	  a = xsKey(i,2)
-	  m = xsKey(i,3)
-	  key = 590 * z + 290 * m + a
-	  tempDoubleA = 1.0D0 * isotopeTallyActive(key,4)
-	  tempDoubleB = 1.0D0 * totalSimulationAtoms
-	  contentFactor = tempDoubleA / tempDoubleB
-	
+	  z = xsKey(n,1)
+	  a = xsKey(n,2)
+	  m = xsKey(n,3)
+	  !key = 590 * z + 290 * m + a
+	  key=makeIsotopeKey(z,a,m)	
+	  If(key.gt.0.and.key.le.70800)Then
+	    tempDoubleA = 1.0D0 * isotopeTallyActive(key,4)
+	    tempDoubleB = 1.0D0 * totalSimulationAtoms
+	    contentFactor = tempDoubleA / (tempDoubleB*1.0D0)
 !split up trajectory function	
-      segmentLength = affectedDepth / integrationGranularity
-	  reactionRate(i) = 0.0
-	  averagedXS = 0.0D0
-	  do j=1,integrationGranularity
-	    !calculate trajectory depth
-		trajectoryDepth = (affectedDepth * (j - 0.5)) / integrationGranularity
-		!energy at depth		
-	    energyAtDepth = 0
-		do k=0,size(fitCoefficients)-1
-	      energyAtDepth = energyAtDepth + trajectoryDepth**(k) * fitCoefficients(k)
-	    enddo
+        segmentLength = affectedDepth / integrationGranularity
+	    averagedXS = 0.0D0
+	    do j=1,integrationGranularity
+!calculate trajectory depth
+		  trajectoryDepth = (affectedDepth * (j - 0.5)) / integrationGranularity
+!energy at depth		
+	      energyAtDepth = 0
+		  Do k=0,size(fitCoefficients)-1
+	        energyAtDepth = energyAtDepth + trajectoryDepth**(k) * fitCoefficients(k)
+	      End Do
 ! find reaction cross section for energy - sets xs 
-		xs = 0.0D0 !make cross section equal to zero by default
-		Call searchXS(energyAtDepth, xs, i)
+		  xs = 0.0D0 !make cross section equal to zero by default
+		  Call searchXS(energyAtDepth, xs, n)
 !add to averaged cross section
-		averagedXS = averagedXS + (1.0D0/(1.0D0*integrationGranularity)) * xs	
-		!Testing
-		!If(xsKey(i,1).eq.26.and.xsKey(i,2).eq.56.and.&
-		!xsKey(i,4).eq.25.and.xsKey(i,5).eq.48)Then
-		!  xs = searchXSa(energyAtDepth,i)
-		!  print *,j,energyAtDepth,xs
-		!End If
-	  enddo
-	  
+		  averagedXS = averagedXS + (1.0D0/(1.0D0*integrationGranularity)) * xs	
+	    End Do
 !convert averaged cross section to m-2
-      averagedXS = averagedXS * 1.0D-28
-	  averageXS(i) = averagedXS
-!store reaction rate (for 1mg of material in the beam area)
-	  reactionRate(i) = ionsPerSecond * averagedXS * numberDensity * &
-	  affectedDepth * 1.0D-10 * contentFactor
-	  numberDensityArray(i) = 1.0D0 * numberDensity * contentFactor
-	enddo	
+        averagedXS = averagedXS * 1.0D-28
+!calculate reaction rate
+	    reactionRateTemp = ionsPerSecond * averagedXS * numberDensity * &
+	    affectedDepth * 1.0D-10 * contentFactor
+!Store values
+	    i = i + 1
+		reactionRate(i) = 1.0D0*reactionRateTemp
+	    averageXS(i) = 1.0D0*averagedXS
+	    numberDensityArray(i) = 1.0D0 * numberDensity * contentFactor
+	  End If
+	End Do	
 !DPA
     If(vpi.gt.0.0D0)Then
 	  DPA = 1.0D0*(vpi*ionsPerSecond*beamDuration)/(volumeAffected*numberDensity)
@@ -537,15 +560,19 @@ contains
 	    zA = xsKey(i,1)
 	    aA = xsKey(i,2)
 	    mA = xsKey(i,3)
-		key = 590 * zA + 290 * mA + aA	
+		key = makeIsotopeKey(z,a,m)
 !subtract reaction rate from target isotope
-		isotopeTallyActive(key,3) = isotopeTallyActive(key,3) - 1.0D0*reactionRate(i)
+        If(key.gt.0.and.key.le.70800)Then
+		  isotopeTallyActive(key,3) = isotopeTallyActive(key,3) - 1.0D0*reactionRate(i)
+		End If  
 	    zB = xsKey(i,4)
 	    aB = xsKey(i,5)
 	    mB = xsKey(i,6)
-		key = 590 * zB + 290 * mB + aB	
+		key = makeIsotopeKey(z,a,m)
 !add reaction rate to the product isotope
-		isotopeTallyActive(key,3) = isotopeTallyActive(key,3) + 1.0D0*reactionRate(i)
+        If(key.gt.0.and.key.le.70800)Then
+		  isotopeTallyActive(key,3) = isotopeTallyActive(key,3) + 1.0D0*reactionRate(i)
+		End If
 	  endif
     enddo	
 	
@@ -565,17 +592,19 @@ contains
 	simIsotopes = 0
 	Do j=1,size(simIsotopeKeys) 
 	  key = simIsotopeKeys(j)
-	  isotopeTallyActive(key,5) = isotopeTallyActive(key,4)
-	  write(999,"(I6.6,A7,A1,&
-	  I3.3,A1,I3.3,A1,I1.1,A1,&
-	  I3.3,A1,I3.3,A1,&
-	  d17.10,A1,d17.10,A1,d17.10,A1,d17.10)") &
-	  key,isotopeTallyChar(key)," ",&
-	  isotopeTallyInt(key,1)," ",isotopeTallyInt(key,2)," ",isotopeTallyInt(key,3)," ",&
-	  isotopeTallyInt(key,4)," ",isotopeTallyInt(key,5)," ",&
-	  isotopeTallyActive(key,1)," ",isotopeTallyActive(key,2)," ",&
-	  isotopeTallyActive(key,3)," ",isotopeTallyActive(key,4)		
-	  simIsotopes = simIsotopes + 1
+	  If(key.gt.0.and.key.le.70800)Then
+	    isotopeTallyActive(key,5) = isotopeTallyActive(key,4)
+	    write(999,"(I6.6,A7,A1,&
+	    I3.3,A1,I3.3,A1,I1.1,A1,&
+	    I3.3,A1,I3.3,A1,&
+	    d17.10,A1,d17.10,A1,d17.10,A1,d17.10)") &
+	    key,isotopeTallyChar(key)," ",&
+	    isotopeTallyInt(key,1)," ",isotopeTallyInt(key,2)," ",isotopeTallyInt(key,3)," ",&
+	    isotopeTallyInt(key,4)," ",isotopeTallyInt(key,5)," ",&
+	    isotopeTallyActive(key,1)," ",isotopeTallyActive(key,2)," ",&
+	    isotopeTallyActive(key,3)," ",isotopeTallyActive(key,4)		
+	    simIsotopes = simIsotopes + 1
+	  End If	
     enddo
 !close output file
 	write(999,"(A1)") " "
@@ -691,7 +720,9 @@ contains
 !fill sim isotope slots with zeros
 	Do j=1,size(simIsotopeKeys,1) 
 	  key = simIsotopeKeys(j)
-	  decayTempTally(key) = 0.0D0
+	  If(key.gt.0.and.key.le.70800)Then
+	    decayTempTally(key) = 0.0D0
+	  End If	
 	End Do
 	!target atoms lost due to transmutation
 	Do j=1,size(targetReactionRatesInt,1) 
@@ -700,7 +731,9 @@ contains
 	  mT = targetReactionRatesInt(j,3)
 	  w = 1.0D0*targetReactionRates(j)
 	  keyT=makeIsotopeKey(zT,aT,mT)
-	  decayTempTally(keyT) = decayTempTally(keyT) + 1.0D0*w*(beamDuration-simTime)
+	  If(keyT.gt.0.and.keyT.le.70800)Then
+	    decayTempTally(keyT) = decayTempTally(keyT) + 1.0D0*w*(beamDuration-simTime)
+	  End If
 	End Do 
 !Product atoms lost
 	Do j=1,size(productReactionRatesInt,1) 
@@ -715,13 +748,15 @@ contains
 !Apply tally changes
     Do j=1,size(simIsotopeKeys) 
 	  key = simIsotopeKeys(j)
-	  isotopeTallyActive(key,4) = isotopeTallyActive(key,5) + 1.0D0 * decayTempTally(key)
+	  If(key.gt.0.and.key.le.70800)Then
+	    isotopeTallyActive(key,4) = isotopeTallyActive(key,5) + 1.0D0 * decayTempTally(key)
 !ensure no negative tally counts
-      If(isotopeTallyActive(key,4).lt.0.0D0)Then
-		isotopeTallyActive(key,4) = 0.0D0
-	  End If
+        If(isotopeTallyActive(key,4).lt.0.0D0)Then
+		  isotopeTallyActive(key,4) = 0.0D0
+	    End If
 !store in the beamDuration tally
-      isotopeTallyActive(key,7) = isotopeTallyActive(key,4)
+        isotopeTallyActive(key,7) = isotopeTallyActive(key,4)
+	  End If	
 	End Do
 !Calculate activity
     Call calcTallyActivity()
@@ -825,7 +860,9 @@ contains
 !zero out reaction rates (beam off)
 		Do j=1,size(simIsotopeKeys) 
 		  key = simIsotopeKeys(j)
-		  isotopeTallyActive(key,3) = 0.0D0
+	      If(key.gt.0.and.key.le.70800)Then
+		    isotopeTallyActive(key,3) = 0.0D0
+		  End If	
 		End Do
 	  End If
 !start-end times
@@ -840,20 +877,13 @@ contains
 		startTimeDisplay = startTime + beamDuration
 		endTimeDisplay = endTime + beamDuration
       End If	  
-	  changeTime = endTime - startTime	  
-!store sim info to file - open output file
-      !open(unit=999,file=trim(outputFile),status="old",position="append",action="write")
-!write to output file
-	  !write(999,"(A70)") "----------------------------------------------------------------------" 
-	  !write(999,"(A21,E20.10,A4,E20.10)") "Simulation time ",startTimeDisplay," to ",&
-	  !endTimeDisplay
-	  !write(999,"(A70)") "----------------------------------------------------------------------"
-!close file
-      !close(999)
+	  changeTime = endTime - startTime	
 !fill sim isotope slots with zeros
 	  Do j=1,size(simIsotopeKeys,1) 
-		key = simIsotopeKeys(j)
-	    decayTempTally(key) = 0.0D0
+		key = simIsotopeKeys(j)		
+	    If(key.gt.0.and.key.le.70800)Then
+	      decayTempTally(key) = 0.0D0
+		End If  
 	  End Do
 !target atoms lost due to transmutation
 	  If(beamOnOff.eq.1)Then
@@ -862,8 +892,10 @@ contains
 	      aT = targetReactionRatesInt(j,2)
 	      mT = targetReactionRatesInt(j,3)
 		  w = 1.0D0*targetReactionRates(j)
-		  keyT=makeIsotopeKey(zT,aT,mT)
-		  decayTempTally(keyT) = decayTempTally(keyT) + w * changeTime
+		  keyT=makeIsotopeKey(zT,aT,mT)		  
+	      If(keyT.gt.0.and.keyT.le.70800)Then
+		    decayTempTally(keyT) = decayTempTally(keyT) + w * changeTime
+		  End If
 		End Do  
 	  End If
 	  !print *,simTime,beamOnOff,startTime,endTime
@@ -890,6 +922,7 @@ contains
 !Apply tally changes
       Do j=1,size(simIsotopeKeys) 
 		key = simIsotopeKeys(j)
+	    If(key.gt.0.and.key.le.70800)Then
 		If(beamOnOff.eq.1)Then
 	      isotopeTallyActive(key,4) = isotopeTallyActive(key,5) + 1.0D0 * decayTempTally(key)
 		Else
@@ -908,6 +941,7 @@ contains
 		    isotopeActivity(i,j,3) = isotopeTallyActive(key,6)*isotopeTallyActive(key,4) 
 		  End If
 		End If
+		End If
 	  End Do
 !Calculate activity
       Call calcTallyActivity()
@@ -915,14 +949,18 @@ contains
       totalIsotopeActivity = 0.0D0	 
       Do j=1,size(simIsotopeKeys) 
 	    key = simIsotopeKeys(j)
-		If(isotopeTallyActive(key,1).gt.0.and.isotopeTallyActive(key,4).gt.0)Then
-		  totalIsotopeActivity=totalIsotopeActivity+1.0D0*&
-		  isotopeTallyActive(key,6)*isotopeTallyActive(key,4)
+		If(key.gt.0.and.key.le.70800)Then
+		  If(isotopeTallyActive(key,1).gt.0.and.isotopeTallyActive(key,4).gt.0)Then
+		    totalIsotopeActivity=totalIsotopeActivity+1.0D0*&
+		    isotopeTallyActive(key,6)*isotopeTallyActive(key,4)
+		  End If
 		End If
 	  End Do
 !Save activity/time to file - open output file
-      open(unit=998,file=trim(activityHistoryFile),status="old",position="append",action="write")	  
-	  write(998,"(E20.10,A1,E20.10,A1,E20.10)") simTime," ",&
+      open(unit=998,file=trim(activityHistoryFile),status="old",position="append",action="write")	   
+	  !write(998,"(E20.10,A1,E20.10,A1,E20.10)") simTime," ",&
+	  !(simTime+workingTimeStep)," ",totalIsotopeActivity 
+	  write(998,"(E20.10,A1,E20.10)") &
 	  (simTime+workingTimeStep)," ",totalIsotopeActivity
 	  close(998)
 !output tally to output file (disabled)
@@ -967,6 +1005,7 @@ contains
 	    If(saveIsotope.eq.1)Then
 	      write(996,"(A65)") "-----------------------------------------------------------------"
 	      key = isotopeActivityKey(1,j)
+		  If(key.gt.0.and.key.le.70800)Then
 	      write(996,"(I8,A1,I8,A1,I8,A1,I8)") key," ",isotopeTallyInt(key,1)," ",&
 		    isotopeTallyInt(key,2)," ",isotopeTallyInt(key,3)
 	      write(996,"(A65)") "-----------------------------------------------------------------"
@@ -979,6 +1018,7 @@ contains
 	      End Do
 	      write(996,"(A1)") " "
 	      write(996,"(A1)") " "
+		  End If
 	    End If
 	  End Do	  
 	  close(996)
@@ -992,7 +1032,8 @@ contains
 	write(999,"(A9,A9,A9,A4,A20,A4,A20)") "Z        ","A        ","M        ",&
 	 "    ","Gamma Energy/KeV    ","    ","Gamma count/s      "
 	Do i=1,size(simIsotopeKeys) 
-	  key = simIsotopeKeys(i)  
+	  key = simIsotopeKeys(i) 
+	  If(key.gt.0.and.key.le.70800)Then
 	  z = isotopeTallyInt(key,1)
 	  a = isotopeTallyInt(key,2)
 	  m = isotopeTallyInt(key,3)
@@ -1010,23 +1051,28 @@ contains
 	      End If
 	    End Do
       End If
+	  End If
 	End Do	  
 !order final tally by activity - count active isotopes
     orderedActivityCount = 0
 	Do j=1,size(simIsotopeKeys) 
 	  key = simIsotopeKeys(j)
+	  If(key.gt.0.and.key.le.70800)Then
 	  If(isotopeTallyActive(key,2).gt.0.0D0)Then	      
 	    orderedActivityCount = orderedActivityCount + 1
+	  End If
 	  End If
     End Do	  
 	Allocate(orderedActivity(1:orderedActivityCount,1:2))
 	orderedActivityCount = 0
 	Do j=1,size(simIsotopeKeys) 
 	  key = simIsotopeKeys(j)
+	  If(key.gt.0.and.key.le.70800)Then
 	  If(isotopeTallyActive(key,2).gt.0.0D0)Then 
 	    orderedActivityCount = orderedActivityCount + 1
 	    orderedActivity(orderedActivityCount,1) = key
 	    orderedActivity(orderedActivityCount,2) = isotopeTallyActive(key,2)
+	  End If
 	  End If
 	End Do
 !Sort orderedActivity array
@@ -1057,11 +1103,32 @@ contains
 	write(999,"(A1)") " "
 	Do j=1,size(orderedActivity,1)
 	  key = orderedActivity(j,1)
+	  If(key.gt.0.and.key.le.70800)Then
 	  write(999,"(I8,A1,A2,A1,I8,A1,I8,A1,I8,A4,E20.10)") &
 	  key," ",elementSymbol(isotopeTallyInt(key,1))," ",&
 	  isotopeTallyInt(key,1)," ",isotopeTallyInt(key,2)," ",&
 	  isotopeTallyInt(key,3),"    ",isotopeTallyActive(key,2)
+	  End If
 	End Do
+	
+!If verbose on	
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A4,A21,A5,F8.4)","    ","Most Active Isotopes ","     ",ProgramTime()
+	  print "(A6,A12,A9,A9,A18)","    ","Symbol    Z ","       A ",&
+	  "       M ","       Activity/Bq"
+	  Do j=1,size(orderedActivity,1)
+		key = orderedActivity(j,1)
+	    If(key.gt.0.and.key.le.70800)Then
+	      Print "(A6,A2,A1,I8,A1,I8,A1,I8,A4,E20.10)", "      ",&
+	      elementSymbol(isotopeTallyInt(key,1))," ",&
+	      isotopeTallyInt(key,1)," ",isotopeTallyInt(key,2)," ",&
+	      isotopeTallyInt(key,3),"    ",isotopeTallyActive(key,2)
+	     End If
+	    If(j.eq.5)Then
+		  Exit
+		End If
+	  End Do	
+    End If
 	
 !close file
     close(999)
@@ -1120,13 +1187,14 @@ contains
 !Store data to pass to activity calc function - build decay data array
         Do i=1,chainLength		 
 		  key = decayChainArray(i,j,1) 
+		  If(key.gt.0.and.key.le.70800)Then
 		  decayDataArray(i,1) = key 						!Tally key
 		  decayDataArray(i,2) = isotopeTallyActive(key,tallyColumn)   !No. Atoms
 		  decayDataArray(i,3) = decayChainArray(i,j,2)      !Half life
 		  decayDataArray(i,4) = decayChainArray(i,j,3)      !branching factor
 		  decayDataArray(i,5) = isotopeTallyInt(key,1)		!isotope Z
 		  decayDataArray(i,6) = isotopeTallyInt(key,2)		!isotope A	
-          !print *,isotopeTallyInt(key,1),isotopeTallyInt(key,2),key,isotopeTallyActive(key,4)	  
+          End If  
 		End Do
 !calculate change in isotope amounts
 		isotopeChange=CalcIsotopeAmount(parentProductionRate,decayDataArray,tStart,tEnd,tBeamEnd)
@@ -1166,8 +1234,8 @@ contains
 	  !isotopeTallyActive(i,2) activity
 	  key = simIsotopeKeys(i)
 	  isotopeTallyActive(key,2) = isotopeTallyActive(key,6) *&
-        isotopeTallyActive(key,4) 
-	  totalActivityAtTime = totalActivityAtTime + isotopeTallyActive(key,2)	
+      isotopeTallyActive(key,4) 
+	  totalActivityAtTime = totalActivityAtTime + 1.0D0*isotopeTallyActive(key,2)	
     End Do
   End Subroutine calcTallyActivity
   
@@ -1263,8 +1331,10 @@ contains
 	  !isotopeTallyActive(i,6) decay constant
 	  !isotopeTallyActive(i,4) number of atoms
 	  key = simIsotopeKeys(i)
-	  totalActivity = totalActivity + isotopeTallyActive(key,6) *&
+	  If(isotopeTallyActive(key,2).gt.0)Then
+	    totalActivity = totalActivity + 1.0D0*isotopeTallyActive(key,6)*&
         isotopeTallyActive(key,4) 
+	  End If	
     End Do
 !Total energy output
     totalGammaPower = 0.0D0
@@ -1285,8 +1355,12 @@ contains
 	End Do	  
 !Calculate absorbed dose at 1m, 80kg human, surface area 1m2	
     absorbedDose = (totalGammaPower*elementaryCharge)/(4*pi*80)
-
-
+!Print if verbose on  
+    If(verboseTerminal.eqv..true.)Then
+	  print "(A4,A19,E20.10,A5,F8.4)","    ","Total Activity/Bq: ",&
+	  totalActivity,"     ",ProgramTime()
+    End If
+!Write to file
 	write(999,"(A50,E20.10)") "Total Activity/Bq:                                ",&
 	totalActivity	
 	write(999,"(A50,E20.10)") "Total Gamma Power/eV/s:                           ",&
@@ -1512,7 +1586,9 @@ contains
 		!  End If
 	    !End Do		
 		key = decayChains(i,j,1)
-		decayChains(i,j,2) = isotopeTallyActive(key,1)
+		If(key.gt.0.and.key.le.70800)Then
+		  decayChains(i,j,2) = isotopeTallyActive(key,1)
+		End If
 	  End Do
 	End Do
 !Fill in branching factors
