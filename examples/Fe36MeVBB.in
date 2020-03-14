@@ -1,0 +1,44 @@
+#elements
+Fe 100
+#isotopes
+"/gpfs/bb/bxp912/activity/v1.0/data/isotopes.txt"
+#decaymodes
+"/gpfs/bb/bxp912/activity/v1.0/data/decaymodes.txt"
+#gammaenergies
+"/gpfs/bb/bxp912/activity/v1.0/data/gammaenergies.txt"
+#xsfiles
+"/gpfs/bb/bxp912/activity/v1.0/data/xs"
+#trajfile
+"/gpfs/bb/bxp912/activity/v1.0/examples/Fe36MeV.exyz"
+#polyfitorder
+5
+#integrationgranularity
+10
+#beamflux
+0.5 uA
+#beamenergy
+36 MeV
+#beamduration
+300 s
+#beamarea
+100 mm2
+#amtime
+260000 s
+#timestep
+1000 s
+#projectile
+1 1
+#targetthickness
+0.5 mm
+#materialdensity
+8000 kgm3
+#vpi
+60.2
+#individualisotopeactivity
+yes
+#verboseterminal
+yes
+#targetdpa
+0.0
+#gammachartresolution
+200
